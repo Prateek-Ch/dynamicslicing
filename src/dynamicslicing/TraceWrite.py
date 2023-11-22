@@ -5,17 +5,14 @@ import logging
 class TraceWrite(BaseAnalysis):
     def __init__(self) -> None:
         super().__init__()
-        self.danger_of_recursion = False
-        logging.basicConfig(filename='output.log', format='%(message)s', encoding='utf-8', level=logging.INFO)
+        root_logger = logging.getLogger()
+        root_logger.setLevel(logging.INFO)
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        root_logger.addHandler(handler)
     
     def log(self, iid: int, messsage:str, new_val: Any):
-        res = ''
-        for arg in args:
-            if self.danger_of_recursion:
-                res += ' ' + str(hex(id(arg)))
-            else:
-                res += ' ' + str(arg)
-        logging.info(str(iid) + ': ' + res[:80] + 'new_val:'+ str(new_val))
+        logging.info(str(new_val))
 
     def write(
         self, dyn_ast: str, iid: int, old_vals: List[Callable], new_val: Any
