@@ -52,6 +52,14 @@ class RemoveLines(cst.CSTTransformer):
         if int(location.start.line) not in self.lines_to_keep:
             return cst.RemoveFromParent()
         return updated_node
+    
+    def leave_If(
+       self, original_node: "If", updated_node: "If"
+    ) -> Union["BaseStatement", FlattenSentinel["BaseStatement"], cst.RemovalSentinel]:
+        location = self.get_metadata(PositionProvider, original_node)
+        if int(location.start.line) not in self.lines_to_keep:
+            updated_node = cst.RemoveFromParent()
+        return updated_node
 
 def negate_odd_ifs(code: str) -> str:
     syntax_tree = cst.parse_module(code)
@@ -79,6 +87,6 @@ original_code = """def slice_me():
 slice_me()
 """
 
-lines_to_keep = {1, 2, 4, 5, 9}
+lines_to_keep = {1, 2, 5, 9}
 x = remove_lines(original_code, lines_to_keep)
 print(x)
