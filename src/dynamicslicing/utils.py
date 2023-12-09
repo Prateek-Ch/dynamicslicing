@@ -50,13 +50,7 @@ class RemoveLines(cst.CSTTransformer):
     ) -> Union[cst.CSTNodeT, cst.RemovalSentinel]:
         location = self.get_metadata(PositionProvider, original_node)
         if int(location.start.line) not in self.lines_to_keep:
-            # print(f"Removing line {location.start.line}")
-            # try:
-            # create_empty_module()
             return cst.RemoveFromParent()
-            # except Exception as e:
-                # create_empty_module()
-                # print("error")
         return updated_node
 
 def negate_odd_ifs(code: str) -> str:
