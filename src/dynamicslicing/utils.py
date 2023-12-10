@@ -61,6 +61,32 @@ class RemoveLines(cst.CSTTransformer):
             updated_node = cst.RemoveFromParent()
         return updated_node
 
+
+class SlicingCriterion(cst.CSTTransformer):
+    """
+        Returns the slicing criterion
+    """
+    METADATA_DEPENDENCIES = (
+        PositionProvider,
+        ParentNodeProvider,
+    ) 
+    
+    def __init__(self):
+        super().__init__()
+        self.slicing_criterion_location = None
+       
+    def leave_Comment(
+        self, original_node: "Comment", updated_node: "Comment"
+    ) -> "Comment":
+        location = self.get_metadata(PositionProvider, original_node)
+        loc = None
+        if "# slicing criterion" in original_node.value:
+            self.slicing_criterion_location = int(location.start.line)
+        return original_node
+    
+    def get_slicing_criterion_location(self):
+        return self.slicing_criterion_location
+
 def negate_odd_ifs(code: str) -> str:
     syntax_tree = cst.parse_module(code)
     wrapper = cst.metadata.MetadataWrapper(syntax_tree)
@@ -75,10 +101,17 @@ def remove_lines(code: str, lines_to_keep: List[int]) -> str:
     new_syntax_tree = wrapper.visit(code_modifier)
     return new_syntax_tree.code
 
+def slicing_criterion(code: str) -> str:
+    syntax_tree = cst.parse_module(code)
+    wrapper = cst.metadata.MetadataWrapper(syntax_tree)
+    code_modifier = SlicingCriterion()
+    new_syntax_tree = wrapper.visit(code_modifier)
+    return code_modifier.get_slicing_criterion_location()
+
 # Example usage:
 original_code = """def slice_me():
     x = 5
-    print("Hello World")
+    print("Hello World")  # slicing criterion
     if x < 10:
         x += 5
     y = 0
@@ -88,5 +121,8 @@ slice_me()
 """
 
 lines_to_keep = {1, 2, 5, 9}
-x = remove_lines(original_code, lines_to_keep)
-print(x)
+# x = remove_lines(original_code, lines_to_keep)
+# print(x)
+
+y = slicing_criterion(original_code)
+print(y)
