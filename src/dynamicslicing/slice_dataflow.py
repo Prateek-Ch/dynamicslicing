@@ -7,3 +7,7 @@ class SliceDataflow(BaseAnalysis):
         with open(source_path, "r") as file:
             source = file.read()
         iid_object = IIDs(source_path)
+        
+
+input_file_path = "temp_test.py"
+slicer = SliceDataflow(input_file_path)
