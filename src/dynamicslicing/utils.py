@@ -155,5 +155,5 @@ lines_to_keep = {1, 2, 5, 9}
 # x = remove_lines(original_code, lines_to_keep)
 # print(x)
 
-y = slicing_criterion(original_code)
-print(y)
+# y = slicing_criterion(original_code)
+# print(y)
