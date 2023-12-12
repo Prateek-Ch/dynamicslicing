@@ -91,7 +91,6 @@ class SliceDataflow(BaseAnalysis):
             self.dependencies.add(node)
     
     def end_execution(self) -> None:
-        print(self.line_numbers)
         sliced_code = remove_lines(self.source, self.line_numbers)
         output_file_name = os.path.join(os.path.dirname(self.args.entry), "sliced.py")
         with open(output_file_name, "w") as output_file:
