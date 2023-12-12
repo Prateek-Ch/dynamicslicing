@@ -140,20 +140,20 @@ def slicing_criterion(code: str) -> str:
     return slicing_criterion.get_slicing_criterion()
 
 # Example usage:
-original_code = """def slice_me():
-    x = 5
-    print("Hello World")  
-    if x < 10:
-        x += 5
-    y = 0
-    return y # slicing criterion
+# original_code = """def slice_me():
+#     x = 5
+#     print("Hello World")  
+#     if x < 10:
+#         x += 5
+#     y = 0
+#     return y # slicing criterion
 
-slice_me()
-"""
+# slice_me()
+# """
 
-lines_to_keep = [1, 2, 4, 5, 9]
-x = remove_lines(original_code, lines_to_keep)
-print(x)
+# lines_to_keep = [1, 2, 4, 5, 9]
+# x = remove_lines(original_code, lines_to_keep)
+# print(x)
 
 # y = slicing_criterion(original_code)
 # print(y)
