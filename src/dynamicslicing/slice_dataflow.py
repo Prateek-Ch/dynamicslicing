@@ -4,7 +4,7 @@ from dynapyt.instrument.IIDs import IIDs
 from utils import slicing_criterion, remove_lines
 from typing import List, Callable, Any, Tuple, Dict
 from dynapyt.utils.nodeLocator import get_node_by_location
-import argparse
+import argparse, os
 
 class SliceDataflow(BaseAnalysis):
     def __init__(self):
@@ -13,13 +13,13 @@ class SliceDataflow(BaseAnalysis):
         parser.add_argument('--analysis', dest='analysis', type=str, help='Add analysis to slice')
         parser.add_argument('--entry', dest='entry', type=str, help='Add entry to slice')
         parser.add_argument('--files', dest='files', type=str, help='Add entry to slice')
-        args = parser.parse_args()
+        self.args = parser.parse_args()
         
-        if(args.entry):
-            file_name = args.entry + ".orig"
+        if(self.args.entry):
+            file_name = self.args.entry + ".orig"
             with open(file_name, "r") as file:
                 self.source = file.read()
-            iid_object = IIDs(args.entry)
+            iid_object = IIDs(self.args.entry)
         
             self.asts = {}
             self.slice_criteria = slicing_criterion(self.source)
@@ -93,7 +93,9 @@ class SliceDataflow(BaseAnalysis):
     def end_execution(self) -> None:
         print(self.line_numbers)
         sliced_code = remove_lines(self.source, self.line_numbers)
-        print(sliced_code)
+        output_file_name = os.path.join(os.path.dirname(self.args.entry), "sliced.py")
+        with open(output_file_name, "w") as output_file:
+            output_file.write(sliced_code)
     
  
 
