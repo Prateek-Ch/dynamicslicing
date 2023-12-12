@@ -121,7 +121,7 @@ def negate_odd_ifs(code: str) -> str:
     new_syntax_tree = wrapper.visit(code_modifier)
     return new_syntax_tree.code
 
-def remove_lines(code: str, lines_to_keep: List[int]) -> str:
+def remove_lines(code: str, lines_to_keep: []) -> str:
     syntax_tree = cst.parse_module(code)
     wrapper = cst.metadata.MetadataWrapper(syntax_tree)
     code_modifier = RemoveLines(lines_to_keep)
@@ -151,9 +151,9 @@ original_code = """def slice_me():
 slice_me()
 """
 
-lines_to_keep = {1, 2, 5, 9}
-# x = remove_lines(original_code, lines_to_keep)
-# print(x)
+lines_to_keep = [1, 2, 4, 5, 9]
+x = remove_lines(original_code, lines_to_keep)
+print(x)
 
 # y = slicing_criterion(original_code)
 # print(y)

@@ -12,16 +12,19 @@ class SliceDataflow(BaseAnalysis):
         parser.add_argument('--directory', dest='directory', type=str, help='Instrumentation to slice')
         parser.add_argument('--analysis', dest='analysis', type=str, help='Add analysis to slice')
         parser.add_argument('--entry', dest='entry', type=str, help='Add entry to slice')
+        parser.add_argument('--files', dest='files', type=str, help='Add entry to slice')
         args = parser.parse_args()
         
-        with open(args.entry, "r") as file:
-            self.source = file.read()
-        iid_object = IIDs(args.entry)
+        if(args.entry):
+            file_name = args.entry + ".orig"
+            with open(file_name, "r") as file:
+                self.source = file.read()
+            iid_object = IIDs(args.entry)
         
-        self.asts = {}
-        self.slice_criteria = slicing_criterion(self.source)
-        self.dependencies = set()
-        self.line_numbers = List[int]
+            self.asts = {}
+            self.slice_criteria = slicing_criterion(self.source)
+            self.dependencies = set()
+            self.line_numbers = []
         
     def add_node_to_dependencies(self, node: Any, location: int):
         if isinstance(node, cst.Name):
@@ -69,7 +72,26 @@ class SliceDataflow(BaseAnalysis):
             self.line_numbers.append(location.start_line)
             self.dependencies.add(node)
     
+    def function_enter(
+        self, dyn_ast: str, iid: int, args: List[Any], name: str, is_lambda: bool
+    ) -> None:
+        location = self.iid_to_location(dyn_ast, iid)
+        node = get_node_by_location(self._get_ast(dyn_ast)[0], location)
+        if location.start_line not in self.line_numbers:
+            self.line_numbers.append(location.start_line)
+            self.dependencies.add(node)
+    
+    def pre_call(
+        self, dyn_ast: str, iid: int, function: Callable, pos_args: Tuple, kw_args: Dict
+    ):
+        location = self.iid_to_location(dyn_ast, iid)
+        node = get_node_by_location(self._get_ast(dyn_ast)[0], location)
+        if location.start_line not in self.line_numbers:
+            self.line_numbers.append(location.start_line)
+            self.dependencies.add(node)
+    
     def end_execution(self) -> None:
+        print(self.line_numbers)
         sliced_code = remove_lines(self.source, self.line_numbers)
         print(sliced_code)
     
