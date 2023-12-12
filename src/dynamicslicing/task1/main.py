@@ -4,6 +4,6 @@ def slice_me():
     if x < 10:
         x += 5
     y = 0
-    return y
+    return y  # slicing criterion
 
 slice_me()
