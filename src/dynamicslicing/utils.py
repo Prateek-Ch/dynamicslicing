@@ -160,17 +160,17 @@ def slicing_criterion(code: str) -> str:
 # slice_me()
 # """
 
-original_code = """def slice_me():
-    x = 10
-    y = 20
-    z = x + y # slicing criterion
+# original_code = """def slice_me():
+#     x = 10
+#     y = 20
+#     z = x + y # slicing criterion
 
-slice_me()
-"""
+# slice_me()
+# """
 
 # lines_to_keep = [1, 2, 4, 5, 9]
 # x = remove_lines(original_code, lines_to_keep)
 # print(x)
 
-y = slicing_criterion(original_code)
-print(y)
+# y = slicing_criterion(original_code)
+# print(y)

@@ -28,15 +28,15 @@ class SliceDataflow(BaseAnalysis):
         
     def add_node_to_dependencies(self, node: Any, location: int):
         if isinstance(node, cst.Name):
-            if node.value == self.slice_criteria and location not in self.line_numbers:
+            if node.value in self.slice_criteria and location not in self.line_numbers:
                 self.line_numbers.append(location)
                 self.dependencies.add(node)
         elif isinstance(node, cst.Assign):
-            if node.targets[0].target.value == self.slice_criteria and location not in self.line_numbers:
+            if node.targets[0].target.value in self.slice_criteria and location not in self.line_numbers:
                 self.line_numbers.append(location)
                 self.dependencies.add(node)
         elif isinstance(node, cst.AugAssign):
-            if node.target.value == self.slice_criteria and location not in self.line_numbers:
+            if node.target.value in self.slice_criteria and location not in self.line_numbers:
                 self.line_numbers.append(location)
                 self.dependencies.add(node)
     
@@ -68,7 +68,7 @@ class SliceDataflow(BaseAnalysis):
     ) -> Any:
         location = self.iid_to_location(dyn_ast, iid)
         node = get_node_by_location(self._get_ast(dyn_ast)[0], location)
-        if node.func.value == self.slice_criteria and location.start_line not in self.line_numbers:
+        if node.func.value in self.slice_criteria and location.start_line not in self.line_numbers:
             self.line_numbers.append(location.start_line)
             self.dependencies.add(node)
     
