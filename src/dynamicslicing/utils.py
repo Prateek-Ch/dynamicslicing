@@ -97,7 +97,7 @@ class SlicingCriterion(cst.CSTTransformer):
     def __init__(self, slicing_criterion_location: int) -> None:
         super().__init__()
         self.slicing_criterion_location = slicing_criterion_location
-        self.slicing_criterion = None
+        self.slicing_criterion = set()
     
     def on_leave(
         self, original_node: cst.CSTNodeT, updated_node: cst.CSTNodeT
@@ -108,11 +108,21 @@ class SlicingCriterion(cst.CSTTransformer):
                 if len(updated_node.body) > 0 and isinstance(updated_node.body[0], cst.Return):
                     return_expr = updated_node.body[0].value
                     if isinstance(return_expr, cst.Name):
-                        self.slicing_criterion = return_expr.value
+                        self.slicing_criterion.add(return_expr.value)
+                elif len(updated_node.body) > 0 and isinstance(updated_node.body[0], cst.Assign):
+                    assignment_value = updated_node.body[0].value
+                    self.collect_variables(assignment_value)
         return updated_node
     
     def get_slicing_criterion(self):
         return self.slicing_criterion
+
+    def collect_variables(self, node):
+        if isinstance(node, cst.Name):
+            self.slicing_criterion.add(node.value)
+        elif isinstance(node, cst.BinaryOperation):
+            self.collect_variables(node.left)
+            self.collect_variables(node.right)
 
 def negate_odd_ifs(code: str) -> str:
     syntax_tree = cst.parse_module(code)
@@ -139,7 +149,6 @@ def slicing_criterion(code: str) -> str:
     sc_synyax_tree = wrapper.visit(slicing_criterion)
     return slicing_criterion.get_slicing_criterion()
 
-# Example usage:
 # original_code = """def slice_me():
 #     x = 5
 #     print("Hello World")  
@@ -151,9 +160,17 @@ def slicing_criterion(code: str) -> str:
 # slice_me()
 # """
 
+original_code = """def slice_me():
+    x = 10
+    y = 20
+    z = x + y # slicing criterion
+
+slice_me()
+"""
+
 # lines_to_keep = [1, 2, 4, 5, 9]
 # x = remove_lines(original_code, lines_to_keep)
 # print(x)
 
-# y = slicing_criterion(original_code)
-# print(y)
+y = slicing_criterion(original_code)
+print(y)
