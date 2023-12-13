@@ -53,7 +53,8 @@ class SliceDataflow(BaseAnalysis):
     ) -> Any:
         location = self.iid_to_location(dyn_ast, iid)
         node = get_node_by_location(self._get_ast(dyn_ast)[0], location)
-        self.add_node_to_dependencies(node, location.start_line)
+        if location.start_line <= self.slicing_criterion_location:
+            self.add_node_to_dependencies(node, location.start_line)
             
     def post_call(
         self,
