@@ -138,7 +138,7 @@ def remove_lines(code: str, lines_to_keep: []) -> str:
     new_syntax_tree = wrapper.visit(code_modifier)
     return new_syntax_tree.code
 
-def slicing_criterion(code: str) -> str:
+def slicing_criterion(code: str) -> tuple[set, int]:
     syntax_tree = cst.parse_module(code)
     wrapper = cst.metadata.MetadataWrapper(syntax_tree)
     
@@ -147,7 +147,7 @@ def slicing_criterion(code: str) -> str:
     
     slicing_criterion = SlicingCriterion(slicing_criterion_location.get_slicing_criterion_location())
     sc_synyax_tree = wrapper.visit(slicing_criterion)
-    return slicing_criterion.get_slicing_criterion()
+    return slicing_criterion.get_slicing_criterion(), slicing_criterion_location.get_slicing_criterion_location()
 
 # original_code = """def slice_me():
 #     x = 5

@@ -22,7 +22,9 @@ class SliceDataflow(BaseAnalysis):
             iid_object = IIDs(self.args.entry)
         
             self.asts = {}
-            self.slice_criteria = slicing_criterion(self.source)
+            set_slice_criterion = slicing_criterion(self.source)
+            self.slice_criteria = set_slice_criterion[0]
+            self.slicing_criterion_location = set_slice_criterion[1]
             self.dependencies = set()
             self.line_numbers = []
         
@@ -40,15 +42,11 @@ class SliceDataflow(BaseAnalysis):
                 self.line_numbers.append(location)
                 self.dependencies.add(node)
     
-    def memory_access(self, dyn_ast: str, iid: int, val: Any) -> Any:
-        location = self.iid_to_location(dyn_ast, iid)
-        node = get_node_by_location(self._get_ast(dyn_ast)[0], location)
-        self.add_node_to_dependencies(node, location.start_line)
-    
     def read(self, dyn_ast: str, iid: int, val: Any) -> Any:
         location = self.iid_to_location(dyn_ast, iid)
         node = get_node_by_location(self._get_ast(dyn_ast)[0], location)
-        self.add_node_to_dependencies(node, location.start_line)
+        if location.start_line == self.slicing_criterion_location:
+            self.add_node_to_dependencies(node, location.start_line)
     
     def write(
         self, dyn_ast: str, iid: int, old_vals: List[Callable], new_val: Any
@@ -91,7 +89,6 @@ class SliceDataflow(BaseAnalysis):
             self.dependencies.add(node)
     
     def end_execution(self) -> None:
-        print(self.line_numbers)
         sliced_code = remove_lines(self.source, self.line_numbers)
         output_file_name = os.path.join(os.path.dirname(self.args.entry), "sliced.py")
         with open(output_file_name, "w") as output_file:
@@ -99,3 +96,4 @@ class SliceDataflow(BaseAnalysis):
     
  
 
+# {linenumber: {read: write}}
