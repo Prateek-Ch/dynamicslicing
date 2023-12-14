@@ -109,6 +109,10 @@ class SlicingCriterion(cst.CSTTransformer):
                     return_expr = updated_node.body[0].value
                     if isinstance(return_expr, cst.Name):
                         self.slicing_criterion.add(return_expr.value)
+                    if isinstance(return_expr, cst.Attribute):
+                        object_value = return_expr.value.value
+                        object_attr = return_expr.attr.value
+                        self.slicing_criterion.add(object_value + "." + object_attr)
                 elif len(updated_node.body) > 0 and isinstance(updated_node.body[0], cst.Assign):
                     assignment_value = updated_node.body[0].value
                     self.collect_variables(assignment_value)
@@ -167,6 +171,18 @@ def slicing_criterion(code: str) -> tuple[set, int]:
 
 # slice_me()
 # """
+
+# original_code = """class Person:
+#     def __init__(self, name):
+#         self.name = name
+
+# def slice_me():
+#     p = Person('Nobody')
+#     indefinite_pronouns = ['Everybody', 'Somebody', 'Nobody', 'Anybody']
+#     indefinite_name = p.name in indefinite_pronouns
+#     return p.name # slicing criterion
+
+# slice_me()"""
 
 # lines_to_keep = [1, 2, 4, 5, 9]
 # x = remove_lines(original_code, lines_to_keep)
