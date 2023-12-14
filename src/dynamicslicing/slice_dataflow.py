@@ -1,7 +1,7 @@
 import libcst as cst
 from dynapyt.analyses.BaseAnalysis import BaseAnalysis
 from dynapyt.instrument.IIDs import IIDs
-from utils import slicing_criterion, remove_lines
+from utils import slicing_criterion, remove_lines, class_information
 from typing import List, Callable, Any, Tuple, Dict
 from dynapyt.utils.nodeLocator import get_node_by_location
 import argparse, os
@@ -20,14 +20,23 @@ class SliceDataflow(BaseAnalysis):
             with open(file_name, "r") as file:
                 self.source = file.read()
             iid_object = IIDs(self.args.entry)
-        
             self.asts = {}
+            
+            split_criteria = set()
             set_slice_criterion = slicing_criterion(self.source)
             self.slice_criteria = set_slice_criterion[0]
+            for criteria in self.slice_criteria:
+                if '.' in criteria:
+                    split_criteria.update(criteria.split('.'))
+            self.slice_criteria.update(split_criteria)
             self.slicing_criterion_location = set_slice_criterion[1]
             self.dependencies = set()
             self.node_dict = {}
             self.line_numbers = []
+            
+            class_info = class_information(self.source)
+            if class_info:
+                self.line_numbers.extend(class_info)
         
     def add_node_to_dependencies(self, node: Any, location: int, type: str):
         if location not in self.line_numbers:
@@ -81,6 +90,7 @@ class SliceDataflow(BaseAnalysis):
     ) -> None:
         location = self.iid_to_location(dyn_ast, iid)
         node = get_node_by_location(self._get_ast(dyn_ast)[0], location)
+        
         if location.start_line not in self.line_numbers:
             self.node_dict[location.start_line] = {"function_enter": node}
             self.line_numbers.append(location.start_line)
@@ -93,9 +103,15 @@ class SliceDataflow(BaseAnalysis):
         node = get_node_by_location(self._get_ast(dyn_ast)[0], location)
         func_value, func_attr = '', ''
         if location.start_line not in self.line_numbers:
-            self.node_dict[location.start_line] = {"pre_call": node}
-            self.line_numbers.append(location.start_line)
-            self.dependencies.add(node)
+            if isinstance(node.func, cst.Attribute):
+                if node.func.attr.value == "append" and node.func.value.value in self.slice_criteria:
+                    self.node_dict[location.start_line] = {"pre_call": node}
+                    self.line_numbers.append(location.start_line)
+                    self.dependencies.add(node)
+            else:
+                self.node_dict[location.start_line] = {"pre_call": node}
+                self.line_numbers.append(location.start_line)
+                self.dependencies.add(node)
         if isinstance(node, cst.Call):
             node_func = node.func
             if isinstance(node_func, cst.Attribute):
@@ -114,6 +130,13 @@ class SliceDataflow(BaseAnalysis):
         if isinstance(node, cst.Name):
             return node.value
         elif isinstance(node, cst.Assign):
+            if isinstance(node.value, cst.Comparison):
+                if isinstance(node.targets[0], cst.AssignTarget):
+                    return node.targets[0].target.value
+                return node.value.left.value.value
+            temp = node.targets[0].target
+            if isinstance(temp, cst.Attribute):
+                return temp.attr.value       
             return node.targets[0].target.value
         elif isinstance(node, cst.AugAssign):
             return node.target.value

@@ -86,6 +86,26 @@ class SlicingCriterionLocation(cst.CSTTransformer):
     def get_slicing_criterion_location(self):
         return self.slicing_criterion_location
     
+class GetClassInformation(cst.CSTTransformer):
+    """
+        Returns the class information
+    """
+    METADATA_DEPENDENCIES = (
+        PositionProvider,
+        ParentNodeProvider,
+    ) 
+    def __init__(self) -> None:
+        super().__init__()
+        self.class_location = []
+    
+    def visit_ClassDef_name(self, node: "ClassDef") -> None:
+        location = self.get_metadata(PositionProvider, node)
+        if int(location.start.line) not in self.class_location:
+            self.class_location.append(int(location.start.line))
+    
+    def class_info(self):
+        return self.class_location
+
 class SlicingCriterion(cst.CSTTransformer):
     """
         Returns the slicing criterion
@@ -153,6 +173,13 @@ def slicing_criterion(code: str) -> tuple[set, int]:
     sc_synyax_tree = wrapper.visit(slicing_criterion)
     return slicing_criterion.get_slicing_criterion(), slicing_criterion_location.get_slicing_criterion_location()
 
+def class_information(code: str):
+    syntax_tree = cst.parse_module(code)
+    wrapper = cst.metadata.MetadataWrapper(syntax_tree)
+    get_class_info = GetClassInformation()
+    syntax_tree = wrapper.visit(get_class_info)
+    return get_class_info.class_info()
+
 # original_code = """def slice_me():
 #     x = 5
 #     print("Hello World")  
@@ -182,11 +209,11 @@ def slicing_criterion(code: str) -> tuple[set, int]:
 #     indefinite_name = p.name in indefinite_pronouns
 #     return p.name # slicing criterion
 
-# slice_me()"""
+# # slice_me()"""
 
 # lines_to_keep = [1, 2, 4, 5, 9]
 # x = remove_lines(original_code, lines_to_keep)
 # print(x)
 
-# y = slicing_criterion(original_code)
+# y = class_information(original_code)
 # print(y)
