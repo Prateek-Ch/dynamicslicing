@@ -1,7 +1,7 @@
 import libcst as cst
 from dynapyt.analyses.BaseAnalysis import BaseAnalysis
 from dynapyt.instrument.IIDs import IIDs
-from utils import slicing_criterion, remove_lines, class_information
+from dynamicslicing.utils import slicing_criterion, remove_lines, class_information
 from typing import List, Callable, Any, Tuple, Dict
 from dynapyt.utils.nodeLocator import get_node_by_location
 import argparse, os
