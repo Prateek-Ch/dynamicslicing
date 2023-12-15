@@ -46,7 +46,10 @@ class SliceDataflow(BaseAnalysis):
                 self.line_numbers.append(location)
                 self.dependencies.add(node)
         elif isinstance(node, cst.Assign):
-            if node.targets[0].target.value in self.slice_criteria and location not in self.line_numbers:
+            if isinstance(node.targets[0].target.value, cst.Name) and node.targets[0].target.value.value in self.slice_criteria and location not in self.line_numbers:
+                self.line_numbers.append(location)
+                self.dependencies.add(node)
+            elif node.targets[0].target.value in self.slice_criteria and location not in self.line_numbers:
                 self.line_numbers.append(location)
                 self.dependencies.add(node)
         elif isinstance(node, cst.AugAssign):
@@ -65,6 +68,9 @@ class SliceDataflow(BaseAnalysis):
     ) -> Any:
         location = self.iid_to_location(dyn_ast, iid)
         node = get_node_by_location(self._get_ast(dyn_ast)[0], location)
+        if isinstance(node, cst.Assign) and node.targets[0].target.value in self.slice_criteria:
+            if hasattr(node.value, "parts") and isinstance(node.value.parts[0], cst.FormattedStringExpression):
+                self.slice_criteria.add(node.value.parts[0].expression.value.value)
         if location.start_line <= self.slicing_criterion_location:
             self.add_node_to_dependencies(node, location.start_line, "write")
         
@@ -108,23 +114,10 @@ class SliceDataflow(BaseAnalysis):
                     self.node_dict[location.start_line] = {"pre_call": node}
                     self.line_numbers.append(location.start_line)
                     self.dependencies.add(node)
-            else:
+            if len(node.args) == 0:
                 self.node_dict[location.start_line] = {"pre_call": node}
                 self.line_numbers.append(location.start_line)
                 self.dependencies.add(node)
-        if isinstance(node, cst.Call):
-            node_func = node.func
-            if isinstance(node_func, cst.Attribute):
-                func_value = node_func.value
-                if isinstance(func_value, cst.Name):
-                    func_value = func_value.value
-                func_attr = node_func.attr
-                if isinstance(func_attr, cst.Name):
-                    func_attr = func_attr.value
-            
-        if func_value in self.slice_criteria and func_attr == 'append':
-            if node.args:
-                self.slice_criteria.add(node.args[0].value.value)
     
     def get_value(self, node) -> str:
         if isinstance(node, cst.Name):
@@ -134,12 +127,23 @@ class SliceDataflow(BaseAnalysis):
                 if isinstance(node.targets[0], cst.AssignTarget):
                     return node.targets[0].target.value
                 return node.value.left.value.value
+            if isinstance(node.targets[0], cst.AssignTarget):
+                if hasattr(node.targets[0].target, "value") and hasattr(node.targets[0].target.value, "value"): 
+                    if node.targets[0].target.value.value in self.slice_criteria or node.targets[0].target.attr.value in self.slice_criteria:
+                        if hasattr(node.value, "value") and hasattr(node.value.value, "value"):
+                            self.slice_criteria.add(node.value.value.value)
+                            return node.targets[0].target.value.value
             temp = node.targets[0].target
             if isinstance(temp, cst.Attribute):
                 return temp.attr.value       
             return node.targets[0].target.value
         elif isinstance(node, cst.AugAssign):
             return node.target.value
+        elif isinstance(node, cst.Call):
+            if isinstance(node.func, cst.Attribute) and node.func.value.value in self.slice_criteria and node.func.attr.value == "append":
+                if len(node.args) > 0:
+                    self.slice_criteria.add(node.args[0].value.value)
+                    return node.args[0].value.value
     
     def end_execution(self) -> None:
         reverse_sorted_dict = dict(sorted(self.node_dict.items(), reverse = True))
@@ -155,7 +159,7 @@ class SliceDataflow(BaseAnalysis):
                         self.slice_criteria.add(node.value.left.value)
                         self.slice_criteria.add(node.value.right.value)
         # weird check
-        if self.slicing_criterion_location not in  self.line_numbers:
+        if self.slicing_criterion_location not in self.line_numbers:
             self.line_numbers.append(self.slicing_criterion_location)
         sliced_code = remove_lines(self.source, self.line_numbers)
         output_file_name = os.path.join(os.path.dirname(self.args.entry), "sliced.py")

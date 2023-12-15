@@ -39,22 +39,30 @@ class RemoveLines(cst.CSTTransformer):
         super().__init__()
         self.lines_to_keep = lines_to_keep
     
-    def on_visit(self, node: cst.CSTNode) -> bool:
-        location = self.get_metadata(PositionProvider, node)
-        if int(location.start.line) in self.lines_to_keep:
-            return True
-        return False
+    # def on_visit(self, node: cst.CSTNode) -> bool:
+    #     location = self.get_metadata(PositionProvider, node)
+    #     if int(location.start.line) in self.lines_to_keep:
+    #         return True
+    #     return False
     
-    def on_leave(
-        self, original_node: cst.CSTNodeT, updated_node: cst.CSTNodeT
-    ) -> Union[cst.CSTNodeT, cst.RemovalSentinel]:
+    def leave_SimpleStatementLine(
+        self, original_node: "SimpleStatementLine", updated_node: "SimpleStatementLine"
+    ) -> Union["BaseStatement", FlattenSentinel["BaseStatement"], cst.RemovalSentinel]:
         location = self.get_metadata(PositionProvider, original_node)
         if int(location.start.line) not in self.lines_to_keep:
-            return cst.RemoveFromParent()
+            updated_node = cst.RemoveFromParent()
         return updated_node
     
     def leave_If(
        self, original_node: "If", updated_node: "If"
+    ) -> Union["BaseStatement", FlattenSentinel["BaseStatement"], cst.RemovalSentinel]:
+        location = self.get_metadata(PositionProvider, original_node)
+        if int(location.start.line) not in self.lines_to_keep:
+            updated_node = cst.RemoveFromParent()
+        return updated_node
+    
+    def leave_Comment(
+        self, original_node: "Comment", updated_node: "Comment"
     ) -> Union["BaseStatement", FlattenSentinel["BaseStatement"], cst.RemovalSentinel]:
         location = self.get_metadata(PositionProvider, original_node)
         if int(location.start.line) not in self.lines_to_keep:
@@ -86,25 +94,6 @@ class SlicingCriterionLocation(cst.CSTTransformer):
     def get_slicing_criterion_location(self):
         return self.slicing_criterion_location
     
-class GetClassInformation(cst.CSTTransformer):
-    """
-        Returns the class information
-    """
-    METADATA_DEPENDENCIES = (
-        PositionProvider,
-        ParentNodeProvider,
-    ) 
-    def __init__(self) -> None:
-        super().__init__()
-        self.class_location = []
-    
-    def visit_ClassDef_name(self, node: "ClassDef") -> None:
-        location = self.get_metadata(PositionProvider, node)
-        if int(location.start.line) not in self.class_location:
-            self.class_location.append(int(location.start.line))
-    
-    def class_info(self):
-        return self.class_location
 
 class SlicingCriterion(cst.CSTTransformer):
     """
@@ -149,6 +138,25 @@ class SlicingCriterion(cst.CSTTransformer):
         elif isinstance(node, cst.BinaryOperation):
             self.collect_variables(node.left)
             self.collect_variables(node.right)
+    
+class GetClassInformation(cst.CSTTransformer):
+    """ 
+    Returns the class information
+    """
+    METADATA_DEPENDENCIES = (
+        PositionProvider,
+        ParentNodeProvider,
+    ) 
+    def __init__(self) -> None:
+        super().__init__()
+        self.class_location = []
+        
+    def visit_ClassDef(self, node: "ClassDef") -> None:
+        location = self.get_metadata(PositionProvider, node)
+        self.class_location.extend(range(int(location.start.line),int(location.end.line)+1))
+        
+    def class_info(self):
+        return self.class_location
 
 def negate_odd_ifs(code: str) -> str:
     syntax_tree = cst.parse_module(code)
@@ -194,9 +202,11 @@ def class_information(code: str):
 # """
 
 # original_code = """def slice_me():
-#     x = 10
-#     y = 20
-#     z = x + y # slicing criterion
+#     german_greetings = ['Hallo', 'Guten Morgen']
+#     english_greetings = ['Hello', 'Good morning']
+#     translation = f"{german_greetings[0]} is {english_greetings[0]}"
+#     greeting = f"{english_greetings[0]}, World!"
+#     return greeting # slicing criterion
 
 # slice_me()
 # """
@@ -227,7 +237,7 @@ def class_information(code: str):
 # y = slicing_criterion(original_code)
 # print(y)
 
-# lines_to_keep = [1, 2, 4, 5, 9]
+# lines_to_keep = [1, 3, 5, 6, 8]
 # x = remove_lines(original_code, lines_to_keep)
 # print(x)
 
