@@ -154,6 +154,9 @@ class SliceDataflow(BaseAnalysis):
                     if isinstance(node.value, cst.BinaryOperation):
                         self.slice_criteria.add(node.value.left.value)
                         self.slice_criteria.add(node.value.right.value)
+        # weird check
+        if self.slicing_criterion_location not in  self.line_numbers:
+            self.line_numbers.append(self.slicing_criterion_location)
         sliced_code = remove_lines(self.source, self.line_numbers)
         output_file_name = os.path.join(os.path.dirname(self.args.entry), "sliced.py")
         with open(output_file_name, "w") as output_file:
