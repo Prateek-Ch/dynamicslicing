@@ -124,6 +124,8 @@ class SlicingCriterion(cst.CSTTransformer):
     ) -> Union[cst.CSTNodeT, cst.RemovalSentinel]:
         location = self.get_metadata(PositionProvider, original_node)
         if int(location.start.line) == self.slicing_criterion_location:
+            if isinstance(updated_node, cst.Name):
+                self.slicing_criterion.add(updated_node.value)
             if isinstance(updated_node, cst.SimpleStatementLine):
                 if len(updated_node.body) > 0 and isinstance(updated_node.body[0], cst.Return):
                     return_expr = updated_node.body[0].value
@@ -210,6 +212,20 @@ def class_information(code: str):
 #     return p.name # slicing criterion
 
 # # slice_me()"""
+
+# original_code = """def slice_me():
+#     ages = [0, 25, 50, 75, 100]
+#     smallest_age = ages[0]
+#     middle_age = ages[2]
+#     highest_age = ages[-1]
+#     new_highest_age = middle_age + highest_age
+#     ages[-1] = 150 # slicing criterion
+#     return ages
+
+# slice_me()"""
+
+# y = slicing_criterion(original_code)
+# print(y)
 
 # lines_to_keep = [1, 2, 4, 5, 9]
 # x = remove_lines(original_code, lines_to_keep)
