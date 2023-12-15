@@ -8,6 +8,7 @@ import argparse, os
 
 class SliceDataflow(BaseAnalysis):
     def __init__(self, source_path):
+        super().__init__()
         parser = argparse.ArgumentParser()
         parser.add_argument('--directory', dest='directory', type=str, help='Instrumentation to slice')
         parser.add_argument('--analysis', dest='analysis', type=str, help='Add analysis to slice')
@@ -20,7 +21,6 @@ class SliceDataflow(BaseAnalysis):
             with open(file_name, "r") as file:
                 self.source = file.read()
             iid_object = IIDs(self.args.entry)
-            self.asts = {}
             
             split_criteria = set()
             set_slice_criterion = slicing_criterion(self.source)
