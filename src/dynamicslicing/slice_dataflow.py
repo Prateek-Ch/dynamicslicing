@@ -7,7 +7,7 @@ from dynapyt.utils.nodeLocator import get_node_by_location
 import argparse, os
 
 class SliceDataflow(BaseAnalysis):
-    def __init__(self):
+    def __init__(self, source_path):
         parser = argparse.ArgumentParser()
         parser.add_argument('--directory', dest='directory', type=str, help='Instrumentation to slice')
         parser.add_argument('--analysis', dest='analysis', type=str, help='Add analysis to slice')
