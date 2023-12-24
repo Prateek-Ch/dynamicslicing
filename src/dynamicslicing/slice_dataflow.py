@@ -1,42 +1,47 @@
 import libcst as cst
 from dynapyt.analyses.BaseAnalysis import BaseAnalysis
 from dynapyt.instrument.IIDs import IIDs
-from dynamicslicing.utils import slicing_criterion, remove_lines, class_information
+from .utils import slicing_criterion, remove_lines, class_information
 from typing import List, Callable, Any, Tuple, Dict
 from dynapyt.utils.nodeLocator import get_node_by_location
 import argparse, os
 
 class SliceDataflow(BaseAnalysis):
-    def __init__(self, source_path):
+    def __init__(self):
         super().__init__()
+        self.parse_command_line_arguments()
+        self.initialize_slice_data()
+                
+    def parse_command_line_arguments(self):
         parser = argparse.ArgumentParser()
         parser.add_argument('--directory', dest='directory', type=str, help='Instrumentation to slice')
         parser.add_argument('--analysis', dest='analysis', type=str, help='Add analysis to slice')
         parser.add_argument('--entry', dest='entry', type=str, help='Add entry to slice')
         parser.add_argument('--files', dest='files', type=str, help='Add entry to slice')
         self.args = parser.parse_args()
-        
-        if(self.args.entry):
-            file_name = self.args.entry + ".orig"
-            with open(file_name, "r") as file:
-                self.source = file.read()
-            iid_object = IIDs(self.args.entry)
-            
-            split_criteria = set()
-            set_slice_criterion = slicing_criterion(self.source)
-            self.slice_criteria = set_slice_criterion[0]
-            for criteria in self.slice_criteria:
-                if '.' in criteria:
-                    split_criteria.update(criteria.split('.'))
-            self.slice_criteria.update(split_criteria)
-            self.slicing_criterion_location = set_slice_criterion[1]
-            self.dependencies = set()
-            self.node_dict = {}
-            self.line_numbers = []
-            
-            class_info = class_information(self.source)
-            if class_info:
-                self.line_numbers.extend(class_info)
+    
+    def initialize_slice_data(self):
+        if self.args.entry:
+            self.read_source_file()
+            self.extract_slice_criteria()
+
+    def read_source_file(self):
+        file_name = f"{self.args.entry}.orig"
+        with open(file_name, "r") as file:
+            self.source = file.read()
+
+    def extract_slice_criteria(self):
+        set_slice_criterion = slicing_criterion(self.source)
+        self.slice_criteria = set_slice_criterion[0]
+        split_criteria = {criterion.split('.') for criterion in self.slice_criteria if '.' in criterion}
+        self.slice_criteria.update(split_criteria)
+        self.slicing_criterion_location = set_slice_criterion[1]
+        self.dependencies = set()
+        self.node_dict = {}
+        self.line_numbers = []
+        class_info = class_information(self.source)
+        if class_info:
+            self.line_numbers.extend(class_info)
         
     def add_node_to_dependencies(self, node: Any, location: int, type: str):
         if location not in self.line_numbers:
