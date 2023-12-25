@@ -158,6 +158,34 @@ class GetClassInformation(cst.CSTTransformer):
     def class_info(self):
         return self.class_location
 
+class GetIfInformation(cst.CSTTransformer):
+    """
+    Returns the if information
+    """
+    
+    METADATA_DEPENDENCIES = (
+        PositionProvider,
+        ParentNodeProvider,
+    )
+    
+    def __init__(self, slicing_criterion: list) -> None:
+        super().__init__()
+        self.if_information = []
+        self.slicing_criterion = slicing_criterion
+    
+    def leave_If_body(self, node: "If") -> None:
+        location = self.get_metadata(PositionProvider, node)
+        if isinstance(node.body.body[0], cst.SimpleStatementLine):
+            body = node.body.body[0].body[0]
+            if isinstance(body, cst.AugAssign):
+                value = body.target.value
+                if value in self.slicing_criterion:
+                    self.if_information.extend(range(int(location.start.line), int(location.end.line)+1))
+    
+    def get_if_information(self):
+        return self.if_information
+
+
 def negate_odd_ifs(code: str) -> str:
     syntax_tree = cst.parse_module(code)
     wrapper = cst.metadata.MetadataWrapper(syntax_tree)
@@ -189,6 +217,13 @@ def class_information(code: str):
     get_class_info = GetClassInformation()
     syntax_tree = wrapper.visit(get_class_info)
     return get_class_info.class_info()
+
+def if_information(code: str, criterion: list):
+    syntax_tree = cst.parse_module(code)
+    wrapper = cst.metadata.MetadataWrapper(syntax_tree)
+    get_if_info = GetIfInformation(criterion)
+    syntax_tree = wrapper.visit(get_if_info)
+    return get_if_info.get_if_information()
 
 # original_code = """def slice_me():
 #     x = 5
@@ -242,4 +277,20 @@ def class_information(code: str):
 # print(x)
 
 # y = class_information(original_code)
+# print(y)
+
+# original_code = """def slice_me():
+#     x = 1
+#     y = 2
+#     z = 3
+#     if x < 4:
+#         y += 2 
+#     if x > 0:
+#         z -= 5
+#     return y # slicing criterion
+
+# slice_me()
+# """
+
+# y = if_information(original_code, ["y"])
 # print(y)
