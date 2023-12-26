@@ -1,39 +1,33 @@
 import libcst as cst
 from dynapyt.analyses.BaseAnalysis import BaseAnalysis
 from dynapyt.instrument.IIDs import IIDs
-from .utils import slicing_criterion, remove_lines, class_information
+from dynamicslicing.utils import slicing_criterion, remove_lines, class_information
 from typing import List, Callable, Any, Tuple, Dict
 from dynapyt.utils.nodeLocator import get_node_by_location
 import argparse, os
 
 class SliceDataflow(BaseAnalysis):
-    def __init__(self):
+    def __init__(self, source):
         super().__init__()
-        self.parse_command_line_arguments()
+        self.args = source
         self.initialize_slice_data()
-                
-    def parse_command_line_arguments(self):
-        parser = argparse.ArgumentParser()
-        parser.add_argument('--directory', dest='directory', type=str, help='Instrumentation to slice')
-        parser.add_argument('--analysis', dest='analysis', type=str, help='Add analysis to slice')
-        parser.add_argument('--entry', dest='entry', type=str, help='Add entry to slice')
-        parser.add_argument('--files', dest='files', type=str, help='Add entry to slice')
-        self.args = parser.parse_args()
     
     def initialize_slice_data(self):
-        if self.args.entry:
-            self.read_source_file()
-            self.extract_slice_criteria()
+        self.read_source_file()
+        self.extract_slice_criteria()
 
     def read_source_file(self):
-        file_name = f"{self.args.entry}.orig"
+        file_name = f"{self.args}"
         with open(file_name, "r") as file:
             self.source = file.read()
 
     def extract_slice_criteria(self):
         set_slice_criterion = slicing_criterion(self.source)
         self.slice_criteria = set_slice_criterion[0]
-        split_criteria = {criterion.split('.') for criterion in self.slice_criteria if '.' in criterion}
+        split_criteria = set()
+        for criteria in self.slice_criteria:
+                if '.' in criteria:
+                    split_criteria.update(criteria.split('.'))
         self.slice_criteria.update(split_criteria)
         self.slicing_criterion_location = set_slice_criterion[1]
         self.dependencies = set()
@@ -167,6 +161,8 @@ class SliceDataflow(BaseAnalysis):
         if self.slicing_criterion_location not in self.line_numbers:
             self.line_numbers.append(self.slicing_criterion_location)
         sliced_code = remove_lines(self.source, self.line_numbers)
-        output_file_name = os.path.join(os.path.dirname(self.args.entry), "sliced.py")
+        output_file_name = os.path.join(os.path.dirname(self.args), "sliced.py")
         with open(output_file_name, "w") as output_file:
             output_file.write(sliced_code)
+        # return self.source, self.line_numbers, self.slice_criteria
+        
