@@ -28,6 +28,10 @@ def correct_output(expected: str, actual: str) -> bool:
 def test_runner(directory_pair: Tuple[str, str], capsys):
     abs_dir, rel_dir = directory_pair
     import dynapyt.runtime as _rt
+    import os
+    current_script_dir = os.path.dirname(os.path.abspath(__file__))
+    src_dir = os.path.abspath(os.path.join(current_script_dir, '..', 'src')) 
+    sys.path.append(src_dir)
 
     # gather hooks used by the analysis
     module_prefix = rel_dir.replace(sep, ".")
@@ -52,12 +56,12 @@ def test_runner(directory_pair: Tuple[str, str], capsys):
             if not exists(orig_program_file):
                 pytest.fail(f"Could find only the instrumented program in {rel_dir}")
             copyfile(orig_program_file, program_file)
-
-    selected_hooks = get_hooks_from_analysis([f"{module_name}.{ac[0]}:{program_file}" for ac in analysis_classes])
+    analysis_instances = [class_[1](program_file) for class_ in analysis_classes]
+    selected_hooks = get_hooks_from_analysis(analysis_instances)
 
     instrument_file(program_file, selected_hooks)
 
-    analysis_instances = [class_[1](orig_program_file) for class_ in analysis_classes]
+    # analysis_instances = [class_[1](orig_program_file) for class_ in analysis_classes]
 
     # analyze
     _rt.analyses = None
