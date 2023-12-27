@@ -181,9 +181,17 @@ class GetIfInformation(cst.CSTTransformer):
                 value = body.target.value
                 if value in self.slicing_criterion:
                     self.if_information.extend(range(int(location.start.line), int(location.end.line)+1))
+                    if isinstance(node.test, cst.Comparison) and node.test.left.value not in self.slicing_criterion:
+                        self.slicing_criterion.add(node.test.left.value)
+                    if isinstance(node.test, cst.BooleanOperation):
+                        if node.test.left.left.value not in self.slicing_criterion:
+                            self.slicing_criterion.add(node.test.left.left.value)
+                        if node.test.right.left.value not in self.slicing_criterion:
+                            self.slicing_criterion.add(node.test.right.left.value)
+                            
     
     def get_if_information(self):
-        return self.if_information
+        return self.if_information, self.slicing_criterion
 
 
 def negate_odd_ifs(code: str) -> str:
@@ -283,7 +291,7 @@ def if_information(code: str, criterion: list):
 #     x = 1
 #     y = 2
 #     z = 3
-#     if x < 4:
+#     if x < 4 and z < 2:
 #         y += 2 
 #     if x > 0:
 #         z -= 5
@@ -293,4 +301,5 @@ def if_information(code: str, criterion: list):
 # """
 
 # y = if_information(original_code, ["y"])
-# print(y)
+# lines, slicing = y
+# print(lines, slicing)

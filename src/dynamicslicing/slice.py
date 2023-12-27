@@ -1,7 +1,7 @@
 import libcst as cst
 from dynapyt.analyses.BaseAnalysis import BaseAnalysis
 from dynapyt.instrument.IIDs import IIDs
-from dynamicslicing.utils import slicing_criterion, remove_lines, class_information
+from dynamicslicing.utils import slicing_criterion, remove_lines, class_information, if_information
 from typing import List, Callable, Any, Tuple, Dict
 from dynapyt.utils.nodeLocator import get_node_by_location
 import argparse, os
@@ -151,6 +151,9 @@ class Slice(BaseAnalysis):
                     return node.args[0].value.value
     
     def end_execution(self) -> None:
+        lines, slicing = if_information(self.source, self.slice_criteria)
+        self.slice_criteria.update(set(slicing))
+        self.line_numbers.extend(x for x in lines if x not in self.line_numbers)
         reverse_sorted_dict = dict(sorted(self.node_dict.items(), reverse = True))
         for outer_key, inner_dict in reverse_sorted_dict.items():
             for inner_key, value in inner_dict.items():
