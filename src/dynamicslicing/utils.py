@@ -171,7 +171,7 @@ class GetIfInformation(cst.CSTTransformer):
     def __init__(self, slicing_criterion: set) -> None:
         super().__init__()
         self.if_information = []
-        self.slicing_criterion = set(slicing_criterion)
+        self.slicing_criterion = slicing_criterion
         self.remove_information = []
         self.else_required = False
         self.if_required = False
@@ -180,7 +180,6 @@ class GetIfInformation(cst.CSTTransformer):
         self, original_node: "If", updated_node: "If"
     ) -> Union["BaseStatement", FlattenSentinel["BaseStatement"], cst.RemovalSentinel]:
         location = self.get_metadata(PositionProvider, original_node)
-        
         # In case else is required add the Comparision vars to list of slicing_criterions
         if self.else_required:
             if isinstance(original_node.test, cst.Comparison) and original_node.test.left.value not in self.slicing_criterion:
@@ -194,20 +193,23 @@ class GetIfInformation(cst.CSTTransformer):
         # Perform check for If condition and add vals to slicing_criterion as needed
         if isinstance(original_node.body.body[0], cst.SimpleStatementLine):
             body = original_node.body.body[0].body[0]
+            value = ''
+            if isinstance(body, cst.Expr) and body.value.func.attr.value == 'append':
+                value = body.value.func.value.value
             if isinstance(body, cst.AugAssign):
                 value = body.target.value
-                if value in self.slicing_criterion:
-                    self.if_required = True
-                    self.if_information.extend(range(int(location.start.line), int(location.end.line)+1))
-                    if isinstance(original_node.test, cst.Comparison) and original_node.test.left.value not in self.slicing_criterion:
-                        self.slicing_criterion.add(original_node.test.left.value)
-                    if isinstance(original_node.test, cst.BooleanOperation):
-                        if original_node.test.left.left.value not in self.slicing_criterion:
-                            self.slicing_criterion.add(original_node.test.left.left.value)
-                        if original_node.test.right.left.value not in self.slicing_criterion:
-                            self.slicing_criterion.add(original_node.test.right.left.value)
-                elif self.else_required and not self.if_required:
-                    self.if_information.append(int(location.start.line))
+            if value in self.slicing_criterion:
+                self.if_required = True
+                self.if_information.extend(range(int(location.start.line), int(location.end.line)+1))
+                if isinstance(original_node.test, cst.Comparison) and original_node.test.left.value not in self.slicing_criterion:
+                    self.slicing_criterion.add(original_node.test.left.value)
+                if isinstance(original_node.test, cst.BooleanOperation):
+                    if original_node.test.left.left.value not in self.slicing_criterion:
+                        self.slicing_criterion.add(original_node.test.left.left.value)
+                    if original_node.test.right.left.value not in self.slicing_criterion:
+                        self.slicing_criterion.add(original_node.test.right.left.value)
+            elif self.else_required and not self.if_required:
+                self.if_information.append(int(location.start.line))
         return updated_node    
     
     def leave_Else_body(self, node: "Else") -> None:
@@ -323,17 +325,17 @@ def if_information(code: str, criterion: set):
 # print(y)
 
 # original_code = """def slice_me():
-#     x = 1
-#     y = 2
-#     z = 3
-#     if x > 4:
-#         z += 2
-#     else:
-#         y -= 5
-#     return y # slicing criterion
+#     ages = [0, 25, 50, 75, 100]
+#     smallest_age = ages[0]
+#     middle_age = ages[2]
+#     highest_age = ages[-1]
+#     new_highest_age = middle_age + highest_age
+#     if new_highest_age <= 150:
+#         ages.append(new_highest_age)
+#     return ages # slicing criterion
 
 # slice_me()"""
 
-# y = if_information(original_code, ("y"))
+# y = if_information(original_code, {"ages"})
 # lines, slicing = y
 # print(lines, slicing)
