@@ -39,12 +39,6 @@ class RemoveLines(cst.CSTTransformer):
         super().__init__()
         self.lines_to_keep = lines_to_keep
     
-    # def on_visit(self, node: cst.CSTNode) -> bool:
-    #     location = self.get_metadata(PositionProvider, node)
-    #     if int(location.start.line) in self.lines_to_keep:
-    #         return True
-    #     return False
-    
     def leave_SimpleStatementLine(
         self, original_node: "SimpleStatementLine", updated_node: "SimpleStatementLine"
     ) -> Union["BaseStatement", FlattenSentinel["BaseStatement"], cst.RemovalSentinel]:
@@ -55,6 +49,20 @@ class RemoveLines(cst.CSTTransformer):
     
     def leave_If(
        self, original_node: "If", updated_node: "If"
+    ) -> Union["BaseStatement", FlattenSentinel["BaseStatement"], cst.RemovalSentinel]:
+        location = self.get_metadata(PositionProvider, original_node)
+        if int(location.start.line) not in self.lines_to_keep:
+            updated_node = cst.RemoveFromParent()
+        return updated_node
+    
+    def leave_Else(self, original_node: "Else", updated_node: "Else") -> "Else":
+        location = self.get_metadata(PositionProvider, original_node)
+        if int(location.start.line) not in self.lines_to_keep:
+            updated_node = cst.RemoveFromParent()
+        return updated_node
+    
+    def leave_For(
+        self, original_node: "For", updated_node: "For"
     ) -> Union["BaseStatement", FlattenSentinel["BaseStatement"], cst.RemovalSentinel]:
         location = self.get_metadata(PositionProvider, original_node)
         if int(location.start.line) not in self.lines_to_keep:
@@ -194,10 +202,12 @@ class GetIfInformation(cst.CSTTransformer):
         if isinstance(original_node.body.body[0], cst.SimpleStatementLine):
             body = original_node.body.body[0].body[0]
             value = ''
-            if isinstance(body, cst.Expr) and body.value.func.attr.value == 'append':
+            if isinstance(body, cst.Expr) and hasattr(body.value.func, 'attr') and body.value.func.attr.value == 'append':
                 value = body.value.func.value.value
             if isinstance(body, cst.AugAssign):
-                value = body.target.value
+                if isinstance(body.target.value, cst.Name):
+                    value = body.target.value.value
+                else: value = body.target.value
             if value in self.slicing_criterion:
                 self.if_required = True
                 self.if_information.extend(range(int(location.start.line), int(location.end.line)+1))
@@ -210,6 +220,9 @@ class GetIfInformation(cst.CSTTransformer):
                         self.slicing_criterion.add(original_node.test.right.left.value)
             elif self.else_required and not self.if_required:
                 self.if_information.append(int(location.start.line))
+        
+        if not self.else_required:
+            self.if_information = [x for x in self.if_information if x not in self.remove_information]
         return updated_node    
     
     def leave_Else_body(self, node: "Else") -> None:
@@ -221,10 +234,12 @@ class GetIfInformation(cst.CSTTransformer):
                 # To handle condition where if would add the entire if-else block to if_info but else block is not needed
                 if value not in self.slicing_criterion:
                     self.remove_information.extend(range(int(location.start.line), int(location.end.line)+1))
-                    self.if_information = [x for x in self.if_information if x not in self.remove_information]
                 else:
                     self.if_information.extend(range(int(location.start.line), int(location.end.line)+1))
                     self.else_required = True
+        
+        if not self.else_required:
+            self.remove_information.extend(range(int(location.start.line), int(location.end.line)+1))
                       
     def get_if_information(self):
         return self.if_information, self.slicing_criterion
@@ -275,11 +290,18 @@ def if_information(code: str, criterion: set):
 #     print("Hello World")  
 #     if x < 10:
 #         x += 5
+#     else:
+#         a = b
 #     y = 0
 #     return y # slicing criterion
 
 # slice_me()
 # """
+
+# lines_to_keep = [1, 3, 4, 5, 8]
+# x = remove_lines(original_code, lines_to_keep)
+# print(x)
+
 
 # original_code = """def slice_me():
 #     german_greetings = ['Hallo', 'Guten Morgen']
@@ -325,13 +347,14 @@ def if_information(code: str, criterion: set):
 # print(y)
 
 # original_code = """def slice_me():
-#     ages = [0, 25, 50, 75, 100]
-#     smallest_age = ages[0]
-#     middle_age = ages[2]
-#     highest_age = ages[-1]
-#     new_highest_age = middle_age + highest_age
-#     if new_highest_age <= 150:
-#         ages.append(new_highest_age)
+#     ages = [0, 25, 50, 75, 100, 150]
+#     current_age = ages[0]
+#     while current_age < ages[-1]:
+#         current_age += 1
+#     if current_age == ages[-1]:
+#         ages[-1] += 50
+#     else:
+#         print("something went wrong")        
 #     return ages # slicing criterion
 
 # slice_me()"""
