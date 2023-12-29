@@ -295,6 +295,8 @@ class GetWhileInformation(cst.CSTTransformer):
                 value = ''
                 if isinstance(body, cst.Expr) and hasattr(body.value.func, 'attr') and body.value.func.attr.value == 'append':
                     value = body.value.func.value.value
+                if isinstance(body, cst.Expr) and hasattr(body.value.func, 'dot'):
+                    value = body.value.func.value.value
                 if isinstance(body, cst.AugAssign):
                     if isinstance(body.target.value, cst.Name):
                         value = body.target.value.value
@@ -447,19 +449,24 @@ def while_information(code: str, criterion: set):
 # lines, slicing = y
 # print(lines, slicing)
 
-# original_code = """def slice_me():
-#     ages = [0, 25, 50, 75, 100, 150]
-#     current_age = ages[0]
-#     while current_age < ages[-1]:
-#         current_age += 1
-#     if current_age == ages[-1]:
-#         ages[-1] += 50
-#     else:
-#         print("something went wrong")        
-#     return ages # slicing criterion
+# original_code = """class Person:
+#     def __init__(self, name):
+#         self.name = name
+#         self.age = 0
+
+#     def increase_age(self, years):
+#         self.age += years
+            
+# def slice_me():
+#     p = Person('Nobody')
+#     while p.age < 18:
+#         p.increase_age(1)
+#     if p.age == 18:
+#         print(f'{p.name} is {p.age}')
+#     return p # slicing criterion
 
 # slice_me()"""
 
-# y = while_information(original_code, {'ages', 'current_age'})
+# y = while_information(original_code, {'p'})
 # lines, slicing = y
 # print(lines, slicing)
