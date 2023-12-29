@@ -1,7 +1,7 @@
 import libcst as cst
 from dynapyt.analyses.BaseAnalysis import BaseAnalysis
 from dynapyt.instrument.IIDs import IIDs
-from dynamicslicing.utils import slicing_criterion, remove_lines, class_information, if_information
+from dynamicslicing.utils import slicing_criterion, remove_lines, class_information, if_information, while_information
 from typing import List, Callable, Any, Tuple, Dict
 from dynapyt.utils.nodeLocator import get_node_by_location
 import argparse, os
@@ -33,8 +33,6 @@ class Slice(BaseAnalysis):
     def extract_slice_criteria(self):
         set_slice_criterion = slicing_criterion(self.source)
         self.slice_criteria = set_slice_criterion[0]
-        split_criteria = {criterion.split('.') for criterion in self.slice_criteria if '.' in criterion}
-        self.slice_criteria.update(split_criteria)
         self.slicing_criterion_location = set_slice_criterion[1]
         self.dependencies = set()
         self.node_dict = {}
@@ -151,9 +149,16 @@ class Slice(BaseAnalysis):
                     return node.args[0].value.value
     
     def end_execution(self) -> None:
+        # If-Else Information
         lines, slicing = if_information(self.source, self.slice_criteria)
         self.slice_criteria.update(set(slicing))
         self.line_numbers.extend(x for x in lines if x not in self.line_numbers)
+        
+        # While Information
+        lines, slicing = while_information(self.source, self.slice_criteria)
+        self.slice_criteria.update(set(slicing))
+        self.line_numbers.extend(x for x in lines if x not in self.line_numbers)
+        
         reverse_sorted_dict = dict(sorted(self.node_dict.items(), reverse = True))
         for outer_key, inner_dict in reverse_sorted_dict.items():
             for inner_key, value in inner_dict.items():
@@ -169,6 +174,7 @@ class Slice(BaseAnalysis):
         # weird check
         if self.slicing_criterion_location not in self.line_numbers:
             self.line_numbers.append(self.slicing_criterion_location)
+        print(self.slice_criteria)
         sliced_code = remove_lines(self.source, self.line_numbers)
         output_file_name = os.path.join(os.path.dirname(self.args.entry), "sliced.py")
         with open(output_file_name, "w") as output_file:
