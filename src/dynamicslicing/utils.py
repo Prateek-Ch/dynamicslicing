@@ -168,28 +168,62 @@ class GetIfInformation(cst.CSTTransformer):
         ParentNodeProvider,
     )
     
-    def __init__(self, slicing_criterion: list) -> None:
+    def __init__(self, slicing_criterion: set) -> None:
         super().__init__()
         self.if_information = []
-        self.slicing_criterion = slicing_criterion
+        self.slicing_criterion = set(slicing_criterion)
+        self.remove_information = []
+        self.else_required = False
+        self.if_required = False
+        
+    def leave_If(
+        self, original_node: "If", updated_node: "If"
+    ) -> Union["BaseStatement", FlattenSentinel["BaseStatement"], cst.RemovalSentinel]:
+        location = self.get_metadata(PositionProvider, original_node)
+        
+        # In case else is required add the Comparision vars to list of slicing_criterions
+        if self.else_required:
+            if isinstance(original_node.test, cst.Comparison) and original_node.test.left.value not in self.slicing_criterion:
+                self.slicing_criterion.add(original_node.test.left.value)
+            if isinstance(original_node.test, cst.BooleanOperation):
+                if original_node.test.left.left.value not in self.slicing_criterion:
+                    self.slicing_criterion.add(original_node.test.left.left.value)
+                if original_node.test.right.left.value not in self.slicing_criterion:
+                    self.slicing_criterion.add(original_node.test.right.left.value)
+        
+        # Perform check for If condition and add vals to slicing_criterion as needed
+        if isinstance(original_node.body.body[0], cst.SimpleStatementLine):
+            body = original_node.body.body[0].body[0]
+            if isinstance(body, cst.AugAssign):
+                value = body.target.value
+                if value in self.slicing_criterion:
+                    self.if_required = True
+                    self.if_information.extend(range(int(location.start.line), int(location.end.line)+1))
+                    if isinstance(original_node.test, cst.Comparison) and original_node.test.left.value not in self.slicing_criterion:
+                        self.slicing_criterion.add(original_node.test.left.value)
+                    if isinstance(original_node.test, cst.BooleanOperation):
+                        if original_node.test.left.left.value not in self.slicing_criterion:
+                            self.slicing_criterion.add(original_node.test.left.left.value)
+                        if original_node.test.right.left.value not in self.slicing_criterion:
+                            self.slicing_criterion.add(original_node.test.right.left.value)
+                elif self.else_required and not self.if_required:
+                    self.if_information.append(int(location.start.line))
+        return updated_node    
     
-    def leave_If_body(self, node: "If") -> None:
+    def leave_Else_body(self, node: "Else") -> None:
         location = self.get_metadata(PositionProvider, node)
         if isinstance(node.body.body[0], cst.SimpleStatementLine):
             body = node.body.body[0].body[0]
             if isinstance(body, cst.AugAssign):
                 value = body.target.value
-                if value in self.slicing_criterion:
+                # To handle condition where if would add the entire if-else block to if_info but else block is not needed
+                if value not in self.slicing_criterion:
+                    self.remove_information.extend(range(int(location.start.line), int(location.end.line)+1))
+                    self.if_information = [x for x in self.if_information if x not in self.remove_information]
+                else:
                     self.if_information.extend(range(int(location.start.line), int(location.end.line)+1))
-                    if isinstance(node.test, cst.Comparison) and node.test.left.value not in self.slicing_criterion:
-                        self.slicing_criterion.add(node.test.left.value)
-                    if isinstance(node.test, cst.BooleanOperation):
-                        if node.test.left.left.value not in self.slicing_criterion:
-                            self.slicing_criterion.add(node.test.left.left.value)
-                        if node.test.right.left.value not in self.slicing_criterion:
-                            self.slicing_criterion.add(node.test.right.left.value)
-                            
-    
+                    self.else_required = True
+                      
     def get_if_information(self):
         return self.if_information, self.slicing_criterion
 
@@ -226,11 +260,12 @@ def class_information(code: str):
     syntax_tree = wrapper.visit(get_class_info)
     return get_class_info.class_info()
 
-def if_information(code: str, criterion: list):
+def if_information(code: str, criterion: set):
     syntax_tree = cst.parse_module(code)
     wrapper = cst.metadata.MetadataWrapper(syntax_tree)
     get_if_info = GetIfInformation(criterion)
-    syntax_tree = wrapper.visit(get_if_info)
+    new_syntax_tree = wrapper.visit(get_if_info)
+    # print("new_syntax_tree.code:", new_syntax_tree.code)
     return get_if_info.get_if_information()
 
 # original_code = """def slice_me():
@@ -291,15 +326,14 @@ def if_information(code: str, criterion: list):
 #     x = 1
 #     y = 2
 #     z = 3
-#     if x < 4 and z < 2:
-#         y += 2 
-#     if x > 0:
-#         z -= 5
+#     if x > 4:
+#         z += 2
+#     else:
+#         y -= 5
 #     return y # slicing criterion
 
-# slice_me()
-# """
+# slice_me()"""
 
-# y = if_information(original_code, ["y"])
+# y = if_information(original_code, ("y"))
 # lines, slicing = y
 # print(lines, slicing)
