@@ -210,7 +210,7 @@ class GetIfInformation(cst.CSTTransformer):
 
         evaluator = IfConditionEvaluator(self.write_values)
         result = True if evaluator.evaluate_if_condition(original_node) not in {True, False} else evaluator.evaluate_if_condition(original_node)
-        if result:
+        if result or self.else_required:
             # Perform check for If condition and add vals to slicing_criterion as needed
             if isinstance(original_node.body.body[0], cst.SimpleStatementLine):
                 for i in range(len(original_node.body.body)):
@@ -252,7 +252,7 @@ class GetIfInformation(cst.CSTTransformer):
                 body  = original_node.body.body[i].body[0]
                 if isinstance(body, cst.Expr) and isinstance(body.value, cst.Call) and body.value.func.value == 'print' and (int(location.start.line)+i+1) in self.if_information:
                     self.if_information = [x for x in self.if_information if x!= (int(location.start.line)+i+1)]
-        else:
+        elif not result:
             self.bad_ifs.extend(range(int(location.start.line), int(location.end.line)+1))
             
         # Remove else lines if its not required
@@ -342,14 +342,15 @@ class IfConditionEvaluator:
             # Handle other types of conditions if needed
 
     def _evaluate_comparison(self, comparison_node) -> bool:
-        comparator_value = self._get_value(comparison_node.comparisons[0].comparator)
-        left_value = type(comparator_value)(self._get_value(comparison_node.left))
-        operator = comparison_node.comparisons[0].operator.__class__.__name__
+        if isinstance(comparison_node.comparisons[0].comparator, cst.Integer) and isinstance(comparison_node.left, cst.Name):
+            comparator_value = self._get_value(comparison_node.comparisons[0].comparator)
+            left_value = type(comparator_value)(self._get_value(comparison_node.left))
+            operator = comparison_node.comparisons[0].operator.__class__.__name__
 
-        if operator == 'LessThan':
-            return left_value < comparator_value
-        elif operator == 'GreaterThan':
-            return left_value > comparator_value
+            if operator == 'LessThan':
+                return left_value < comparator_value
+            elif operator == 'GreaterThan':
+                return left_value > comparator_value
 
     def _evaluate_boolean_operation(self, boolean_node) -> bool:
         left_result = self._evaluate_comparison(boolean_node.left)
@@ -494,7 +495,7 @@ def while_information(code: str, criterion: set):
 
 # y = if_information(original_code, {"greeting"}, {'hour': '0', 'greeting': '""'})
 # lines, slicing, bad_ifs = y
-# print(lines, slicing)
+# print(lines, slicing, bad_ifs)
 
 # original_code = """class Person:
 #     def __init__(self, name):

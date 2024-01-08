@@ -73,7 +73,8 @@ class Slice(BaseAnalysis):
         location = self.iid_to_location(dyn_ast, iid)
         node = get_node_by_location(self._get_ast(dyn_ast)[0], location)
         if getattr(node.value, 'value', None):
-            self.write_values[str(node.targets[0].target.value)] = str(node.value.value)
+            if hasattr(node, 'targets'):
+                self.write_values[str(node.targets[0].target.value)] = str(node.value.value)
         if isinstance(node, cst.Assign) and node.targets[0].target.value in self.slice_criteria:
             if hasattr(node.value, "parts") and isinstance(node.value.parts[0], cst.FormattedStringExpression):
                 self.slice_criteria.add(node.value.parts[0].expression.value.value)
