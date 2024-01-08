@@ -6,3 +6,5 @@ def slice_me():
         c = a + b # slicing criterion
     if operation == "sub":
         c = a - b
+
+slice_me()
