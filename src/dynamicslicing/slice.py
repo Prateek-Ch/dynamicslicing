@@ -37,6 +37,7 @@ class Slice(BaseAnalysis):
         self.dependencies = set()
         self.node_dict = {}
         self.line_numbers = []
+        self.write_values = {}
         class_info = class_information(self.source)
         if class_info:
             self.line_numbers.extend(class_info)
@@ -71,6 +72,8 @@ class Slice(BaseAnalysis):
     ) -> Any:
         location = self.iid_to_location(dyn_ast, iid)
         node = get_node_by_location(self._get_ast(dyn_ast)[0], location)
+        if getattr(node.value, 'value', None):
+            self.write_values[str(node.targets[0].target.value)] = str(node.value.value)
         if isinstance(node, cst.Assign) and node.targets[0].target.value in self.slice_criteria:
             if hasattr(node.value, "parts") and isinstance(node.value.parts[0], cst.FormattedStringExpression):
                 self.slice_criteria.add(node.value.parts[0].expression.value.value)
@@ -150,7 +153,7 @@ class Slice(BaseAnalysis):
     
     def end_execution(self) -> None:
         # If-Else Information
-        lines, slicing = if_information(self.source, self.slice_criteria)
+        lines, slicing, bad_ifs = if_information(self.source, self.slice_criteria, self.write_values)
         self.slice_criteria.update(set(slicing))
         self.line_numbers.extend(x for x in lines if x not in self.line_numbers)
         
@@ -174,7 +177,8 @@ class Slice(BaseAnalysis):
         # weird check
         if self.slicing_criterion_location not in self.line_numbers:
             self.line_numbers.append(self.slicing_criterion_location)
-        print(self.slice_criteria)
+
+        self.line_numbers = [x for x in self.line_numbers if x not in bad_ifs]
         sliced_code = remove_lines(self.source, self.line_numbers)
         output_file_name = os.path.join(os.path.dirname(self.args.entry), "sliced.py")
         with open(output_file_name, "w") as output_file:

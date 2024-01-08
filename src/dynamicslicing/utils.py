@@ -1,4 +1,4 @@
-from typing import List, Union, Optional
+from typing import List, Union, Optional, Dict
 import libcst as cst
 from libcst._flatten_sentinel import FlattenSentinel
 from libcst._nodes.statement import BaseStatement, If
@@ -184,11 +184,13 @@ class GetIfInformation(cst.CSTTransformer):
         ParentNodeProvider,
     )
     
-    def __init__(self, slicing_criterion: set) -> None:
+    def __init__(self, slicing_criterion: set, write_values: Dict) -> None:
         super().__init__()
         self.if_information = []
         self.slicing_criterion = slicing_criterion
+        self.write_values = write_values
         self.remove_information = []
+        self.bad_ifs = []
         self.else_required = False
         self.if_required = False
         
@@ -205,47 +207,54 @@ class GetIfInformation(cst.CSTTransformer):
                     self.slicing_criterion.add(original_node.test.left.left.value)
                 if original_node.test.right.left.value not in self.slicing_criterion:
                     self.slicing_criterion.add(original_node.test.right.left.value)
+
+        evaluator = IfConditionEvaluator(self.write_values)
+        result = True if evaluator.evaluate_if_condition(original_node) not in {True, False} else evaluator.evaluate_if_condition(original_node)
+        if result:
+            # Perform check for If condition and add vals to slicing_criterion as needed
+            if isinstance(original_node.body.body[0], cst.SimpleStatementLine):
+                for i in range(len(original_node.body.body)):
+                    body  = original_node.body.body[i].body[0]
+                    value = ''
+                    if isinstance(body, cst.Expr) and hasattr(body.value.func, 'attr') and body.value.func.attr.value == 'append':
+                        value = body.value.func.value.value
+                    if isinstance(body, cst.AugAssign):
+                        if isinstance(body.target.value, cst.Name):
+                            value = body.target.value.value
+                        else: value = body.target.value
+                    if isinstance(body, cst.Assign) and isinstance(body.targets[0], cst.AssignTarget):
+                        if isinstance(body.value, cst.Subscript) and body.value.value.value not in self.slicing_criterion:
+                            self.slicing_criterion.add(body.value.value.value)
+                        if hasattr(body.targets[0].target.value, 'value'): value = body.targets[0].target.value.value  #for cases like p.name = something, we set value to p
+                        else: value = body.targets[0].target.value
+                    if value in self.slicing_criterion:
+                        self.if_required = True
+                        self.if_information.extend(range(int(location.start.line), int(location.end.line)+1))
+                        if isinstance(original_node.test, cst.Comparison) and original_node.test.left.value not in self.slicing_criterion:
+                            if hasattr(original_node.test.left, "attr"):
+                                self.slicing_criterion.add(original_node.test.left.value.value)
+                                self.slicing_criterion.add(original_node.test.left.attr.value) 
+                            else: self.slicing_criterion.add(original_node.test.left.value)
+                        # TODO: Make these if-else better
+                        # the next one for is if p.name IN blabla
+                        if isinstance(original_node.test, cst.Comparison) and hasattr(original_node.test, "comparisons") and isinstance(original_node.test.comparisons[0].comparator, cst.Name) and original_node.test.comparisons[0].comparator.value not in self.slicing_criterion:
+                            self.slicing_criterion.add(original_node.test.comparisons[0].comparator.value)
+                        if isinstance(original_node.test, cst.BooleanOperation):
+                            if original_node.test.left.left.value not in self.slicing_criterion:
+                                self.slicing_criterion.add(original_node.test.left.left.value)
+                            if original_node.test.right.left.value not in self.slicing_criterion:
+                                self.slicing_criterion.add(original_node.test.right.left.value)
+                    elif self.else_required and not self.if_required:
+                        self.if_information.append(int(location.start.line))
         
-        # Perform check for If condition and add vals to slicing_criterion as needed
-        if isinstance(original_node.body.body[0], cst.SimpleStatementLine):
+            # Remove any print statements ig?
             for i in range(len(original_node.body.body)):
                 body  = original_node.body.body[i].body[0]
-                value = ''
-                if isinstance(body, cst.Expr) and hasattr(body.value.func, 'attr') and body.value.func.attr.value == 'append':
-                    value = body.value.func.value.value
-                if isinstance(body, cst.AugAssign):
-                    if isinstance(body.target.value, cst.Name):
-                        value = body.target.value.value
-                    else: value = body.target.value
-                if isinstance(body, cst.Assign) and isinstance(body.targets[0], cst.AssignTarget):
-                    value = body.targets[0].target.value.value  #for cases like p.name = something, we set value to p
-                    
-                if value in self.slicing_criterion:
-                    self.if_required = True
-                    self.if_information.extend(range(int(location.start.line), int(location.end.line)+1))
-                    if isinstance(original_node.test, cst.Comparison) and original_node.test.left.value not in self.slicing_criterion:
-                        if hasattr(original_node.test.left, "attr"):
-                            self.slicing_criterion.add(original_node.test.left.value.value)
-                            self.slicing_criterion.add(original_node.test.left.attr.value) 
-                        else: self.slicing_criterion.add(original_node.test.left.value)
-                    # TODO: Make these if-else better
-                    # the next one for is if p.name IN blabla
-                    if isinstance(original_node.test, cst.Comparison) and hasattr(original_node.test, "comparisons") and isinstance(original_node.test.comparisons[0].comparator, cst.Name) and original_node.test.comparisons[0].comparator.value not in self.slicing_criterion:
-                        self.slicing_criterion.add(original_node.test.comparisons[0].comparator.value)
-                    if isinstance(original_node.test, cst.BooleanOperation):
-                        if original_node.test.left.left.value not in self.slicing_criterion:
-                            self.slicing_criterion.add(original_node.test.left.left.value)
-                        if original_node.test.right.left.value not in self.slicing_criterion:
-                            self.slicing_criterion.add(original_node.test.right.left.value)
-                elif self.else_required and not self.if_required:
-                    self.if_information.append(int(location.start.line))
-        
-        # Remove any print statements ig?
-        for i in range(len(original_node.body.body)):
-            body  = original_node.body.body[i].body[0]
-            if isinstance(body, cst.Expr) and isinstance(body.value, cst.Call) and body.value.func.value == 'print' and (int(location.start.line)+i+1) in self.if_information:
-                self.if_information = [x for x in self.if_information if x!= (int(location.start.line)+i+1)]
-        
+                if isinstance(body, cst.Expr) and isinstance(body.value, cst.Call) and body.value.func.value == 'print' and (int(location.start.line)+i+1) in self.if_information:
+                    self.if_information = [x for x in self.if_information if x!= (int(location.start.line)+i+1)]
+        else:
+            self.bad_ifs.extend(range(int(location.start.line), int(location.end.line)+1))
+            
         # Remove else lines if its not required
         if not self.else_required:
             self.if_information = [x for x in self.if_information if x not in self.remove_information]
@@ -268,7 +277,7 @@ class GetIfInformation(cst.CSTTransformer):
             self.remove_information.extend(range(int(location.start.line), int(location.end.line)+1))
                       
     def get_if_information(self):
-        return self.if_information, self.slicing_criterion
+        return self.if_information, self.slicing_criterion, self.bad_ifs
 
 class GetWhileInformation(cst.CSTTransformer):
     """
@@ -303,23 +312,60 @@ class GetWhileInformation(cst.CSTTransformer):
                     else: value = body.target.value
                 if isinstance(body, cst.Assign) and isinstance(body.targets[0], cst.AssignTarget):
                     value = body.targets[0].target.value.value  #for cases like p.name = something, we set value to p
-            if value in self.slicing_criterion:
-                self.while_information.extend(range(int(location.start.line), int(location.end.line)+1))
-                if isinstance(original_node.test, cst.Comparison) and original_node.test.left.value not in self.slicing_criterion:
-                    if hasattr(original_node.test.left, "attr"):
-                        self.slicing_criterion.add(original_node.test.left.value.value)
-                        self.slicing_criterion.add(original_node.test.left.attr.value) 
-                    else: self.slicing_criterion.add(original_node.test.left.value)
+                if value in self.slicing_criterion:
+                    self.while_information.extend(range(int(location.start.line), int(location.end.line)+1))
+                    if isinstance(original_node.test, cst.Comparison) and original_node.test.left.value not in self.slicing_criterion:
+                        if hasattr(original_node.test.left, "attr"):
+                            self.slicing_criterion.add(original_node.test.left.value.value)
+                            self.slicing_criterion.add(original_node.test.left.attr.value) 
+                        else: self.slicing_criterion.add(original_node.test.left.value)
         
-        # Remove any print statements ig?
-        for i in range(len(original_node.body.body)):
-            body  = original_node.body.body[i].body[0]
-            if isinstance(body, cst.Expr) and isinstance(body.value, cst.Call) and body.value.func.value == 'print' and (int(location.start.line)+i+1) in self.while_information:
-                self.while_information = [x for x in self.while_information if x!= (int(location.start.line)+i+1)]
         return updated_node
 
     def get_while_information(self):
         return self.while_information, self.slicing_criterion
+    
+    
+class IfConditionEvaluator:
+    """
+        Check if a condition will hold true
+    """
+    def __init__(self, slicing_dict: Dict):
+        self.slicing_dict = slicing_dict
+
+    def evaluate_if_condition(self, if_node) -> bool:
+        if hasattr(if_node, 'test'):
+            if isinstance(if_node.test, cst.Comparison):
+                return self._evaluate_comparison(if_node.test)
+            elif isinstance(if_node.test, cst.BooleanOperation):
+                return self._evaluate_boolean_operation(if_node.test)
+            # Handle other types of conditions if needed
+
+    def _evaluate_comparison(self, comparison_node) -> bool:
+        comparator_value = self._get_value(comparison_node.comparisons[0].comparator)
+        left_value = type(comparator_value)(self._get_value(comparison_node.left))
+        operator = comparison_node.comparisons[0].operator.__class__.__name__
+
+        if operator == 'LessThan':
+            return left_value < comparator_value
+        elif operator == 'GreaterThan':
+            return left_value > comparator_value
+
+    def _evaluate_boolean_operation(self, boolean_node) -> bool:
+        left_result = self._evaluate_comparison(boolean_node.left)
+        right_result = self._evaluate_comparison(boolean_node.right)
+        operator = boolean_node.operator.__class__.__name__
+
+        if operator == 'And':
+            return left_result and right_result
+        elif operator == 'Or':
+            return left_result or right_result
+
+    def _get_value(self, node) -> int:
+        if isinstance(node, cst.Name):
+            return int(self.slicing_dict.get(node.value, 0))
+        elif isinstance(node, cst.Integer):
+            return int(node.value)
 
 
 def negate_odd_ifs(code: str) -> str:
@@ -354,13 +400,13 @@ def class_information(code: str):
     syntax_tree = wrapper.visit(get_class_info)
     return get_class_info.class_info()
 
-def if_information(code: str, criterion: set):
+def if_information(code: str, criterion: set, write_values: Dict):
     syntax_tree = cst.parse_module(code)
     wrapper = cst.metadata.MetadataWrapper(syntax_tree)
-    get_if_info = GetIfInformation(criterion)
+    get_if_info = GetIfInformation(criterion, write_values)
     new_syntax_tree = wrapper.visit(get_if_info)
     # print("new_syntax_tree.code:", new_syntax_tree.code)
-    return get_if_info.get_if_information()
+    return get_if_info.get_if_information() 
 
 def while_information(code: str, criterion: set):
     syntax_tree = cst.parse_module(code)
@@ -432,21 +478,22 @@ def while_information(code: str, criterion: set):
 # print(y)
 
 # original_code = """def slice_me():
-#     p = Person('Nobody')
-#     indefinite_pronouns = ['Everybody', 'Somebody', 'Nobody', 'Anybody']
-#     if p.name in indefinite_pronouns:
-#         p.name = "Undefined"
-#         print("A person's name should not be an indefinite pronoun.")
-#     tries_left = 3
-#     while (p.name in indefinite_pronouns or p.name == "Undefined") and tries_left > 0:
-#         print("Choose a proper name")
-#         tries_left -= 1
-#     return p.name # slicing criterion
+#     hour = 0
+#     greeting = ""
+#     german_greetings = ['Guten Morgen', 'Guten Tag', 'Guten Abend', 'Gute Nacht']
+#     while hour < 24:
+#         if hour < 12:
+#             greeting = german_greetings[0]
+#             return greeting # slicing criterion
+#         if hour > 12 and hour < 17:
+#             greeting = german_greetings[1]
+#         hour += 1
+#     return greeting
 
 # slice_me()"""
 
-# y = if_information(original_code, {"p.name", "p", "name"})
-# lines, slicing = y
+# y = if_information(original_code, {"greeting"}, {'hour': '0', 'greeting': '""'})
+# lines, slicing, bad_ifs = y
 # print(lines, slicing)
 
 # original_code = """class Person:
