@@ -342,15 +342,16 @@ class IfConditionEvaluator:
             # Handle other types of conditions if needed
 
     def _evaluate_comparison(self, comparison_node) -> bool:
-        if isinstance(comparison_node.comparisons[0].comparator, cst.Integer) and isinstance(comparison_node.left, cst.Name):
+        if isinstance(comparison_node.comparisons[0].comparator, cst.Integer) or isinstance(comparison_node.comparisons[0].comparator, cst.SimpleString) and isinstance(comparison_node.left, cst.Name):
             comparator_value = self._get_value(comparison_node.comparisons[0].comparator)
             left_value = type(comparator_value)(self._get_value(comparison_node.left))
             operator = comparison_node.comparisons[0].operator.__class__.__name__
-
             if operator == 'LessThan':
                 return left_value < comparator_value
             elif operator == 'GreaterThan':
                 return left_value > comparator_value
+            elif operator == 'Equal':
+                return left_value == comparator_value
 
     def _evaluate_boolean_operation(self, boolean_node) -> bool:
         left_result = self._evaluate_comparison(boolean_node.left)
@@ -364,9 +365,11 @@ class IfConditionEvaluator:
 
     def _get_value(self, node) -> int:
         if isinstance(node, cst.Name):
-            return int(self.slicing_dict.get(node.value, 0))
+            return type(node.value)(self.slicing_dict.get(node.value, 0))
         elif isinstance(node, cst.Integer):
             return int(node.value)
+        elif isinstance(node, cst.SimpleString):
+            return node.value
 
 
 def negate_odd_ifs(code: str) -> str:
@@ -479,21 +482,18 @@ def while_information(code: str, criterion: set):
 # print(y)
 
 # original_code = """def slice_me():
-#     hour = 0
-#     greeting = ""
-#     german_greetings = ['Guten Morgen', 'Guten Tag', 'Guten Abend', 'Gute Nacht']
-#     while hour < 24:
-#         if hour < 12:
-#             greeting = german_greetings[0]
-#             return greeting # slicing criterion
-#         if hour > 12 and hour < 17:
-#             greeting = german_greetings[1]
-#         hour += 1
-#     return greeting
+#     operation = "sum"
+#     a = 10
+#     b = 15
+#     if operation == "sum":
+#         c = a + b # slicing criterion
+#     if operation == "sub":
+#         c = a - b
 
-# slice_me()"""
+# slice_me()
+# """
 
-# y = if_information(original_code, {"greeting"}, {'hour': '0', 'greeting': '""'})
+# y = if_information(original_code, {"greeting"}, {'operation': '"sum"', 'a': '10', 'b': '15'})
 # lines, slicing, bad_ifs = y
 # print(lines, slicing, bad_ifs)
 

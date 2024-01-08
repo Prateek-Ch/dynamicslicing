@@ -178,7 +178,7 @@ class Slice(BaseAnalysis):
         # weird check
         if self.slicing_criterion_location not in self.line_numbers:
             self.line_numbers.append(self.slicing_criterion_location)
-
+            
         self.line_numbers = [x for x in self.line_numbers if x not in bad_ifs]
         sliced_code = remove_lines(self.source, self.line_numbers)
         output_file_name = os.path.join(os.path.dirname(self.args.entry), "sliced.py")
