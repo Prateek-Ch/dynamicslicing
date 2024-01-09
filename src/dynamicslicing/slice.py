@@ -74,7 +74,7 @@ class Slice(BaseAnalysis):
         node = get_node_by_location(self._get_ast(dyn_ast)[0], location)
         if getattr(node.value, 'value', None) or isinstance(node.value, cst.List):
             if hasattr(node, 'targets'):
-                if isinstance(node.value, cst.Subscript):
+                if isinstance(node.value, cst.Subscript) and hasattr(node.value.slice[0].slice, "value") and hasattr(node.value.slice[0].slice.value, "value"):
                     lista = node.value.value.value
                     listb = node.value.slice[0].slice.value.value
                     if lista in self.write_values:
@@ -168,12 +168,12 @@ class Slice(BaseAnalysis):
         # If-Else Information
         lines, slicing, bad_ifs = if_information(self.source, self.slice_criteria, self.write_values)
         self.slice_criteria.update(set(slicing))
-        self.line_numbers.extend(x for x in lines if x not in self.line_numbers)
+        self.line_numbers.extend(x for x in lines if x not in self.line_numbers and x <= self.slicing_criterion_location)
         
         # While Information
         lines, slicing = while_information(self.source, self.slice_criteria)
         self.slice_criteria.update(set(slicing))
-        self.line_numbers.extend(x for x in lines if x not in self.line_numbers)
+        self.line_numbers.extend(x for x in lines if x not in self.line_numbers and x <= self.slicing_criterion_location)
         
         reverse_sorted_dict = dict(sorted(self.node_dict.items(), reverse = True))
         for outer_key, inner_dict in reverse_sorted_dict.items():

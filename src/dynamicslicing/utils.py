@@ -342,7 +342,7 @@ class IfConditionEvaluator:
             # Handle other types of conditions if needed
 
     def _evaluate_comparison(self, comparison_node) -> bool:
-        if isinstance(comparison_node.comparisons[0].comparator, cst.Integer) or isinstance(comparison_node.comparisons[0].comparator, cst.SimpleString) and isinstance(comparison_node.left, cst.Name):
+        if (isinstance(comparison_node.comparisons[0].comparator, cst.Integer) or isinstance(comparison_node.comparisons[0].comparator, cst.SimpleString)) and isinstance(comparison_node.left, cst.Name):
             comparator_value = self._get_value(comparison_node.comparisons[0].comparator)
             left_value = type(comparator_value)(self._get_value(comparison_node.left))
             operator = comparison_node.comparisons[0].operator.__class__.__name__
