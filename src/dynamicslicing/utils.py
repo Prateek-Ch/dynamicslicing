@@ -352,26 +352,6 @@ class IfConditionEvaluator:
                 return left_value > comparator_value
             elif operator == 'Equal':
                 return left_value == comparator_value
-        elif isinstance(comparison_node.comparisons[0].comparator, cst.Subscript) and isinstance(comparison_node.left, cst.Name):
-            comparator_value = ''
-            lista = comparison_node.comparisons[0].comparator.value.value
-            sliced_value = comparison_node.comparisons[0].comparator.slice[0].slice.value
-            if isinstance(sliced_value, cst.UnaryOperation):
-                sliced_value_ops = sliced_value.operator.__class__.__name__
-                if sliced_value_ops == 'Minus':
-                    temp = sliced_value.expression.value
-                    listb = f'-{temp}'
-            if lista in self.slicing_dict:
-                key = self.slicing_dict[lista]
-                comparator_value = key[int(listb)]
-            left_value = type(comparator_value)(self._get_value(comparison_node.left))
-            operator = comparison_node.comparisons[0].operator.__class__.__name__
-            if operator == 'LessThan':
-                return left_value < comparator_value
-            elif operator == 'GreaterThan':
-                return left_value > comparator_value
-            elif operator == 'Equal':
-                return left_value == comparator_value
 
     def _evaluate_boolean_operation(self, boolean_node) -> bool:
         left_result = self._evaluate_comparison(boolean_node.left)
