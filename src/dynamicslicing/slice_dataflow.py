@@ -4,7 +4,7 @@ from dynapyt.instrument.IIDs import IIDs
 from dynamicslicing.utils import slicing_criterion, remove_lines, class_information
 from typing import List, Callable, Any, Tuple, Dict
 from dynapyt.utils.nodeLocator import get_node_by_location
-import argparse, os
+import os
 
 class SliceDataflow(BaseAnalysis):
     def __init__(self, source):

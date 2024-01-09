@@ -4,29 +4,20 @@ from dynapyt.instrument.IIDs import IIDs
 from dynamicslicing.utils import slicing_criterion, remove_lines, class_information, if_information, while_information
 from typing import List, Callable, Any, Tuple, Dict
 from dynapyt.utils.nodeLocator import get_node_by_location
-import argparse, os
+import os
 
 class Slice(BaseAnalysis):
-    def __init__(self):
+    def __init__(self, source):
         super().__init__()
-        self.parse_command_line_arguments()
+        self.args = source
         self.initialize_slice_data()
-                
-    def parse_command_line_arguments(self):
-        parser = argparse.ArgumentParser()
-        parser.add_argument('--directory', dest='directory', type=str, help='Instrumentation to slice')
-        parser.add_argument('--analysis', dest='analysis', type=str, help='Add analysis to slice')
-        parser.add_argument('--entry', dest='entry', type=str, help='Add entry to slice')
-        parser.add_argument('--files', dest='files', type=str, help='Add entry to slice')
-        self.args = parser.parse_args()
     
     def initialize_slice_data(self):
-        if self.args.entry:
-            self.read_source_file()
-            self.extract_slice_criteria()
+        self.read_source_file()
+        self.extract_slice_criteria()
 
     def read_source_file(self):
-        file_name = f"{self.args.entry}.orig"
+        file_name = f"{self.args}"
         with open(file_name, "r") as file:
             self.source = file.read()
 
@@ -193,6 +184,6 @@ class Slice(BaseAnalysis):
             
         self.line_numbers = [x for x in self.line_numbers if x not in bad_ifs]
         sliced_code = remove_lines(self.source, self.line_numbers)
-        output_file_name = os.path.join(os.path.dirname(self.args.entry), "sliced.py")
+        output_file_name = os.path.join(os.path.dirname(self.args), "sliced.py")
         with open(output_file_name, "w") as output_file:
             output_file.write(sliced_code)
