@@ -352,6 +352,26 @@ class IfConditionEvaluator:
                 return left_value > comparator_value
             elif operator == 'Equal':
                 return left_value == comparator_value
+        elif isinstance(comparison_node.comparisons[0].comparator, cst.Subscript) and isinstance(comparison_node.left, cst.Name):
+            comparator_value = ''
+            lista = comparison_node.comparisons[0].comparator.value.value
+            sliced_value = comparison_node.comparisons[0].comparator.slice[0].slice.value
+            if isinstance(sliced_value, cst.UnaryOperation):
+                sliced_value_ops = sliced_value.operator.__class__.__name__
+                if sliced_value_ops == 'Minus':
+                    temp = sliced_value.expression.value
+                    listb = f'-{temp}'
+            if lista in self.slicing_dict:
+                key = self.slicing_dict[lista]
+                comparator_value = key[int(listb)]
+            left_value = type(comparator_value)(self._get_value(comparison_node.left))
+            operator = comparison_node.comparisons[0].operator.__class__.__name__
+            if operator == 'LessThan':
+                return left_value < comparator_value
+            elif operator == 'GreaterThan':
+                return left_value > comparator_value
+            elif operator == 'Equal':
+                return left_value == comparator_value
 
     def _evaluate_boolean_operation(self, boolean_node) -> bool:
         left_result = self._evaluate_comparison(boolean_node.left)
@@ -482,19 +502,22 @@ def while_information(code: str, criterion: set):
 # print(y)
 
 # original_code = """def slice_me():
-#     operation = "sum"
-#     a = 10
-#     b = 15
-#     if operation == "sum":
-#         c = a + b # slicing criterion
-#     if operation == "sub":
-#         c = a - b
+#     ages = [0, 25, 50, 75, 100, 150]
+#     current_age = ages[0] # slicing criterion
+#     while current_age < ages[-1]:
+#         current_age += 1
+#     if current_age == ages[-1]:
+#         ages[-1] += 50
+#     else:
+#         print("something went wrong")        
+#     return ages
 
 # slice_me()
 # """
 
-# y = if_information(original_code, {"greeting"}, {'operation': '"sum"', 'a': '10', 'b': '15'})
-# lines, slicing, bad_ifs = y
+# y = if_information(original_code, {"greeting"}, {'ages': ['0', '25', '50', '75', '100', '150'], 'current_age': '0'})
+# z = while_information(original_code, {"greeting"}, {'ages': ['0', '25', '50', '75', '100', '150'], 'current_age': '0'})
+# lines, slicing, bad_ifs = z
 # print(lines, slicing, bad_ifs)
 
 # original_code = """class Person:

@@ -72,9 +72,21 @@ class Slice(BaseAnalysis):
     ) -> Any:
         location = self.iid_to_location(dyn_ast, iid)
         node = get_node_by_location(self._get_ast(dyn_ast)[0], location)
-        if getattr(node.value, 'value', None):
+        if getattr(node.value, 'value', None) or isinstance(node.value, cst.List):
             if hasattr(node, 'targets'):
-                self.write_values[str(node.targets[0].target.value)] = str(node.value.value)
+                if isinstance(node.value, cst.Subscript):
+                    lista = node.value.value.value
+                    listb = node.value.slice[0].slice.value.value
+                    if lista in self.write_values:
+                        key = self.write_values[lista]
+                        value = key[int(listb)]
+                        self.write_values[str(node.targets[0].target.value)] = value
+                    else: self.write_values[str(node.targets[0].target.value)] = f"{lista}[{listb}]"
+                elif isinstance(node.value, cst.List):
+                    elements = [element.value.value for element in node.value.elements]
+                    self.write_values[str(node.targets[0].target.value)] = elements
+                else:
+                    self.write_values[str(node.targets[0].target.value)] = str(node.value.value)
         if isinstance(node, cst.Assign) and node.targets[0].target.value in self.slice_criteria:
             if hasattr(node.value, "parts") and isinstance(node.value.parts[0], cst.FormattedStringExpression):
                 self.slice_criteria.add(node.value.parts[0].expression.value.value)
