@@ -42,9 +42,9 @@ class Slice(BaseAnalysis):
         if class_info:
             self.line_numbers.extend(class_info)
         
-    def add_node_to_dependencies(self, node: Any, location: int, type: str):
+    def add_node_to_dependencies(self, node: Any, location: int, typer: str):
         if location not in self.line_numbers:
-            self.node_dict[location] = {type: node}
+            self.node_dict[location] = {typer: node}
         if isinstance(node, cst.Name):
             if node.value in self.slice_criteria and location not in self.line_numbers:
                 self.line_numbers.append(location)
@@ -53,7 +53,11 @@ class Slice(BaseAnalysis):
             if isinstance(node.targets[0].target.value, cst.Name) and node.targets[0].target.value.value in self.slice_criteria and location not in self.line_numbers:
                 self.line_numbers.append(location)
                 self.dependencies.add(node)
-            elif node.targets[0].target.value in self.slice_criteria and location not in self.line_numbers:
+            elif (node.targets[0].target.value in self.slice_criteria) and (location not in self.line_numbers):
+                temp = node.value
+                if isinstance(temp, cst.SimpleString):
+                    if temp.evaluated_value == "":
+                        return
                 self.line_numbers.append(location)
                 self.dependencies.add(node)
         elif isinstance(node, cst.AugAssign):
@@ -183,10 +187,13 @@ class Slice(BaseAnalysis):
                 node = value
                 temp = self.get_value(node)
                 if temp in self.slice_criteria and line_number not in self.line_numbers and dtype != "read" and line_number <= self.slicing_criterion_location:
-                    self.line_numbers.append(line_number)
-                    if isinstance(node.value, cst.BinaryOperation):
-                        self.slice_criteria.add(node.value.left.value)
-                        self.slice_criteria.add(node.value.right.value)
+                    if isinstance(node.value, cst.SimpleString) and node.value.evaluated_value == "":
+                            pass
+                    else:
+                        self.line_numbers.append(line_number)
+                        if isinstance(node.value, cst.BinaryOperation):
+                            self.slice_criteria.add(node.value.left.value)
+                            self.slice_criteria.add(node.value.right.value)
         # weird check
         if self.slicing_criterion_location not in self.line_numbers:
             self.line_numbers.append(self.slicing_criterion_location)
