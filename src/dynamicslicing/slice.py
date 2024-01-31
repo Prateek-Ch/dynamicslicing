@@ -42,13 +42,13 @@ class Slice(BaseAnalysis):
                 self.dependencies.add(node)
         elif isinstance(node, cst.Assign):
             if isinstance(node.targets[0].target.value, cst.Name) and node.targets[0].target.value.value in self.slice_criteria and location not in self.line_numbers:
+                self.line_numbers.append(location)
+                self.dependencies.add(node)
+            elif node.targets[0].target.value in self.slice_criteria and location not in self.line_numbers:
                 temp = node.value
                 if isinstance(temp, cst.SimpleString):
                     if temp.evaluated_value == "":
                         return
-                self.line_numbers.append(location)
-                self.dependencies.add(node)
-            elif node.targets[0].target.value in self.slice_criteria and location not in self.line_numbers:
                 self.line_numbers.append(location)
                 self.dependencies.add(node)
         elif isinstance(node, cst.AugAssign):
